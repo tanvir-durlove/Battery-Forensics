@@ -2,7 +2,7 @@ name: Build Android APK & Play Store AAB
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "**" ]
   workflow_dispatch:
 
 jobs:
@@ -18,30 +18,36 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Create default debug.keystore if missing
+      - name: Accept Android SDK Licenses for Auto-Download (API 36.1)
         run: |
-          if [ ! -f debug.keystore ]; then
+          yes | sdkmanager --licenses || true
+
+      - name: Setup Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Prepare .env and debug.keystore
+        run: |
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+          if [ -f debug.keystore.base64 ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          elif [ ! -f debug.keystore ]; then
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Build Debug APK (For Real Device Testing)
-        run: gradle assembleDebug
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Battery-Forensics-Test-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Build Release AAB (For Google Play Store)
-        if: env.STORE_PASSWORD != ''
-        env:
-          KEYSTORE_PATH: ${{ secrets.KEYSTORE_PATH }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle bundleRelease
+          if-no-files-found: error
