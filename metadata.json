@@ -1,0 +1,6 @@
+{
+  "name": "Battery Forensics",
+  "description": "Evidence-first Android battery diagnostic and forensics analyzer with capability scanning, drain detective, timeline correlation, charging profiler, and AI Battery Doctor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
