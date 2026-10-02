@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
@@ -8,6 +9,7 @@ import com.example.data.ActivityEstimateItem
 import com.example.data.AdbWakelockEntry
 import com.example.data.AiBatteryDoctorClient
 import com.example.data.AiDoctorExchange
+import com.example.data.AiDoctorSessionManager
 import com.example.data.AppActivityInsight
 import com.example.data.CapabilityItem
 import com.example.data.ChargerProfileEntity
@@ -23,8 +25,12 @@ import com.example.data.ExperimentEntity
 import com.example.data.ForensicsDatabase
 import com.example.data.ForensicsReportExporter
 import com.example.data.ForensicsRepository
+import com.example.data.BatteryTrackingReceiver
+import com.example.data.LiveBatteryBroadcastEvent
 import com.example.data.LiveTelemetrySnapshot
 import com.example.data.ManufacturerProfileInfo
+import com.example.data.RewardedAdManager
+import com.example.data.RewardedAdState
 import com.example.data.TimelineEventEntity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,6 +43,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 enum class MainTab(val label: String) {
     HOME("Home"),
@@ -99,6 +106,7 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     private val scanner = DeviceTelemetryScanner(application)
     private val aiClient = AiBatteryDoctorClient()
     private val exporter = ForensicsReportExporter(application)
+    val rewardedAdManager = RewardedAdManager(application)
 
     // Navigation state
     private val _currentTab = MutableStateFlow(MainTab.HOME)
@@ -154,6 +162,13 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
 
     val manufacturerProfile: ManufacturerProfileInfo = scanner.getManufacturerProfile()
 
+    // Real App Usage & Activity Estimates (from UsageStatsManager)
+    private val _appActivityInsights = MutableStateFlow(scanner.queryRealAppActivityInsights())
+    val appActivityInsights: StateFlow<List<AppActivityInsight>> = _appActivityInsights.asStateFlow()
+
+    private val _activityEstimates = MutableStateFlow(scanner.queryRealActivityEstimates(_appActivityInsights.value))
+    val activityEstimates: StateFlow<List<ActivityEstimateItem>> = _activityEstimates.asStateFlow()
+
     // Room Flows
     val diagnosticSessions: StateFlow<List<DiagnosticSessionEntity>> = repository.diagnosticSessions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -182,168 +197,225 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     val activeTestRun: StateFlow<ActiveDiagnosticTestRun?> = _activeTestRun.asStateFlow()
     private var testRunnerJob: Job? = null
 
-    // AI Battery Doctor state
-    private val _aiDoctorHistory = MutableStateFlow<List<AiDoctorExchange>>(
-        listOf(
-            AiDoctorExchange(
-                question = "Why did my battery drop 14% last night?",
-                conclusion = "Battery dropped 14% between 11 PM–7 AM (2.3× your 4–6% normal overnight baseline). Device off-screen awake time was elevated at 1h 18m.",
-                evidencePoints = listOf(
-                    "Instagram logged 47 background activity events while screen was OFF for 7h 42m.",
-                    "Cellular LTE signal dropped to 1–2 bars for 2h 31m between 1:15 AM and 3:46 AM.",
-                    "Battery temperature rose from 27.6°C to 31.4°C during the 4:20 AM background burst."
-                ),
-                supportingData = "Drain rate: 1.75%/hr vs 0.66%/hr 14-night baseline.",
-                primaryContributor = "Instagram Background Activity (Primary Contributor)",
-                confidence = ConfidenceLevel.STRONG_EVIDENCE,
-                dataLimitations = "Exact per-app mAh attribution is unavailable in Standard Mode; ranking reflects synchronized event & wake correlation."
-            )
-        )
-    )
-    val aiDoctorHistory: StateFlow<List<AiDoctorExchange>> = _aiDoctorHistory.asStateFlow()
+    // AI Battery Doctor & Session Ad Unlock states — locked by default and unlocked via Video/Rewarded Ads for the current session only
+    private val _isAiDoctorSessionUnlocked = MutableStateFlow(AiDoctorSessionManager.isUnlocked.value)
+    val isAiDoctorSessionUnlocked: StateFlow<Boolean> = _isAiDoctorSessionUnlocked.asStateFlow()
 
-    private val _aiDoctorLoading = MutableStateFlow(false)
-    val aiDoctorLoading: StateFlow<Boolean> = _aiDoctorLoading.asStateFlow()
+    private val _isExportSessionUnlocked = MutableStateFlow(AiDoctorSessionManager.isExportUnlocked.value)
+    val isExportSessionUnlocked: StateFlow<Boolean> = _isExportSessionUnlocked.asStateFlow()
 
-    // Recommendations with Before/After verification
-    private val _recommendations = MutableStateFlow(
-        listOf(
-            EvidenceRecommendation(
-                id = "rec_ig_bg",
-                title = "Restrict Instagram background usage",
-                whyRecommended = "Instagram generated 47 background events during your 7h 42m screen-off period, correlating with 1h 18m of awake time.",
-                targetContributor = "Elevated Background Activity (Primary)",
-                beforeDrainPercent = 14,
-                afterDrainPercent = 6,
-                verificationConfidence = ConfidenceLevel.STRONG_EVIDENCE
-            ),
-            EvidenceRecommendation(
-                id = "rec_lte_mode",
-                title = "Test preferred LTE mode in low-coverage rooms",
-                whyRecommended = "Weak signal (1–2 bars for 2h 31m) coincided with steeper discharge slope between 1:15 AM and 4:00 AM.",
-                targetContributor = "Weak Cellular Signal (Secondary)",
-                beforeDrainPercent = 14,
-                afterDrainPercent = 8,
-                verificationConfidence = ConfidenceLevel.LIKELY
-            ),
-            EvidenceRecommendation(
-                id = "rec_bg_loc",
-                title = "Change 3 apps from 'Allow all the time' to 'While using'",
-                whyRecommended = "Maps and 2 social apps requested passive location checks while screen was OFF.",
-                targetContributor = "Background Location Access (Possible)",
-                beforeDrainPercent = 14,
-                afterDrainPercent = null,
-                verificationConfidence = ConfidenceLevel.POSSIBLE
-            )
-        )
-    )
+    private val _isDeepBenchmarkUnlocked = MutableStateFlow(AiDoctorSessionManager.isDeepBenchmarkUnlocked.value)
+    val isDeepBenchmarkUnlocked: StateFlow<Boolean> = _isDeepBenchmarkUnlocked.asStateFlow()
+
+    private val _videoAd1ShownCount = MutableStateFlow(AiDoctorSessionManager.videoAd1ShownCount.value)
+    val videoAd1ShownCount: StateFlow<Int> = _videoAd1ShownCount.asStateFlow()
+
+    private val _selectedAiDoctorQuestion = MutableStateFlow<String?>(null)
+    val selectedAiDoctorQuestion: StateFlow<String?> = _selectedAiDoctorQuestion.asStateFlow()
+
+    private val _generatedAiDoctorPrompt = MutableStateFlow<String?>(null)
+    val generatedAiDoctorPrompt: StateFlow<String?> = _generatedAiDoctorPrompt.asStateFlow()
+
+    val rewardedAdState: StateFlow<RewardedAdState> = rewardedAdManager.adState
+
+    // Recommendations — only populated when diagnostic sessions exist
+    private val _recommendations = MutableStateFlow<List<EvidenceRecommendation>>(emptyList())
     val recommendations: StateFlow<List<EvidenceRecommendation>> = _recommendations.asStateFlow()
 
     // Status message toast/banner
     private val _statusBannerMessage = MutableStateFlow<String?>(null)
     val statusBannerMessage: StateFlow<String?> = _statusBannerMessage.asStateFlow()
 
-    // Dashboard Activity Estimates
-    val activityEstimates: List<ActivityEstimateItem> = listOf(
-        ActivityEstimateItem("Screen (100% brightness)", 38, "blue"),
-        ActivityEstimateItem("Mobile network (LTE)", 18, "orange"),
-        ActivityEstimateItem("Instagram", 14, "purple"),
-        ActivityEstimateItem("Maps / GPS", 11, "brown"),
-        ActivityEstimateItem("Background sync", 9, "gray")
-    )
+    // Live broadcast tracking state (from BatteryTrackingReceiver listening to ACTION_BATTERY_CHANGED)
+    private val _liveBroadcastEventsCount = MutableStateFlow(0)
+    val liveBroadcastEventsCount: StateFlow<Int> = _liveBroadcastEventsCount.asStateFlow()
 
-    // Insights 7-Day Data
-    val weeklyDrainPoints: List<DayDrainPoint> = listOf(
-        DayDrainPoint("Mon", "Monday", 19, false, 29.1f, 5.8f, 0.7f),
-        DayDrainPoint("Tue", "Tuesday", 22, false, 29.4f, 6.1f, 0.6f),
-        DayDrainPoint("Wed", "Wednesday", 20, false, 30.2f, 5.9f, 0.7f),
-        DayDrainPoint("Thu", "Thursday", 47, true, 33.6f, 7.4f, 1.75f),
-        DayDrainPoint("Fri", "Friday", 16, false, 28.5f, 5.4f, 0.6f),
-        DayDrainPoint("Sat", "Saturday", 26, false, 29.8f, 6.8f, 0.8f),
-        DayDrainPoint("Sun", "Sunday", 15, false, 28.9f, 5.9f, 0.5f)
-    )
+    private var segmentStartMs: Long = 0L
+    private var segmentStartPercent: Int = -1
+    private var segmentIsCharging: Boolean = false
+    private var segmentChargingSource: String = "Discharging"
+    private var segmentPeakTempC: Float = 0f
+    private var lastObservedPercent: Int = -1
+    private var activeChargeSessionId: Long = 9001L
+    private var hasIncrementedChargeProfileSession: Boolean = false
 
-    val dailyDrainPoints: List<DayDrainPoint> = listOf(
-        DayDrainPoint("00h", "12 AM – 4 AM", 8, true, 31.4f, 0.0f, 1.9f),
-        DayDrainPoint("04h", "4 AM – 8 AM", 6, false, 29.2f, 0.4f, 1.5f),
-        DayDrainPoint("08h", "8 AM – 12 PM", 11, false, 31.2f, 2.1f, 0.7f),
-        DayDrainPoint("12h", "12 PM – 4 PM", 9, false, 29.6f, 1.8f, 0.6f),
-        DayDrainPoint("16h", "4 PM – 8 PM", 7, false, 28.4f, 1.5f, 0.6f),
-        DayDrainPoint("20h", "8 PM – 12 AM", 5, false, 27.9f, 0.9f, 0.5f)
-    )
-
-    val monthlyDrainPoints: List<DayDrainPoint> = listOf(
-        DayDrainPoint("W1", "Week 1", 21, false, 30.1f, 6.0f, 0.7f),
-        DayDrainPoint("W2", "Week 2", 22, false, 30.4f, 6.1f, 0.7f),
-        DayDrainPoint("W3", "Week 3", 25, true, 33.6f, 6.4f, 0.9f),
-        DayDrainPoint("W4", "Week 4", 23, false, 29.9f, 6.2f, 0.8f)
-    )
-
-    val appActivityInsights: List<AppActivityInsight> = listOf(
-        AppActivityInsight(
-            initial = "I",
-            appName = "Instagram",
-            packageName = "com.instagram.android",
-            hasLocationBadge = true,
-            foregroundDurationLabel = "2h 14m",
-            backgroundEventsCount = 47,
-            impactLevel = "High",
-            isRecentlyUpdated = true,
-            updateCorrelationNote = "Updated to v312.0 on Wed 9:40 PM · Background events rose +68% after update (Correlation, not automatic proof of causation)."
-        ),
-        AppActivityInsight(
-            initial = "C",
-            appName = "Chrome",
-            packageName = "com.android.chrome",
-            hasLocationBadge = false,
-            foregroundDurationLabel = "1h 42m",
-            backgroundEventsCount = 12,
-            impactLevel = "Med"
-        ),
-        AppActivityInsight(
-            initial = "Y",
-            appName = "YouTube",
-            packageName = "com.google.android.youtube",
-            hasLocationBadge = false,
-            foregroundDurationLabel = "1h 18m",
-            backgroundEventsCount = 3,
-            impactLevel = "High"
-        ),
-        AppActivityInsight(
-            initial = "M",
-            appName = "Maps",
-            packageName = "com.google.android.apps.maps",
-            hasLocationBadge = true,
-            foregroundDurationLabel = "38m",
-            backgroundEventsCount = 8,
-            impactLevel = "Med"
-        ),
-        AppActivityInsight(
-            initial = "S",
-            appName = "Spotify",
-            packageName = "com.spotify.music",
-            hasLocationBadge = false,
-            foregroundDurationLabel = "1h 02m",
-            backgroundEventsCount = 22,
-            impactLevel = "Low"
-        ),
-        AppActivityInsight(
-            initial = "W",
-            appName = "WhatsApp",
-            packageName = "com.whatsapp",
-            hasLocationBadge = false,
-            foregroundDurationLabel = "28m",
-            backgroundEventsCount = 31,
-            impactLevel = "Med"
-        )
-    )
+    private val batteryReceiver = BatteryTrackingReceiver { event ->
+        onBatteryBroadcastEvent(event)
+    }
 
     init {
+        // Fresh install starts strictly with real device telemetry — no random pre-seeded numbers
+        refreshTelemetry()
+        try {
+            BatteryTrackingReceiver.register(getApplication(), batteryReceiver)
+        } catch (_: Exception) {
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        BatteryTrackingReceiver.unregister(getApplication(), batteryReceiver)
+    }
+
+    fun onBatteryBroadcastEvent(event: LiveBatteryBroadcastEvent) {
+        refreshTelemetry()
+        _liveBroadcastEventsCount.value += 1
+
+        if (segmentStartPercent < 0) {
+            segmentStartMs = event.timestampMs
+            segmentStartPercent = event.batteryPercent
+            segmentIsCharging = event.isCharging
+            segmentChargingSource = event.chargingSource
+            segmentPeakTempC = event.temperatureCelsius
+            lastObservedPercent = event.batteryPercent
+            hasIncrementedChargeProfileSession = false
+            return
+        }
+
+        if (event.temperatureCelsius > segmentPeakTempC) {
+            segmentPeakTempC = event.temperatureCelsius
+        }
+
+        val powerStateChanged = segmentIsCharging != event.isCharging
+        val levelChanged = event.batteryPercent != lastObservedPercent
+        lastObservedPercent = event.batteryPercent
+
+        if (!powerStateChanged && !levelChanged) {
+            return
+        }
+
         viewModelScope.launch {
-            if (!prefs.getBoolean("user_deleted_all_data", false)) {
-                repository.ensureSeeded()
+            val elapsedMs = (event.timestampMs - segmentStartMs).coerceAtLeast(60_000L)
+            val elapsedMins = (elapsedMs / 60_000L).coerceAtLeast(1L)
+            val durationLabel = if (elapsedMins >= 60L) {
+                "${elapsedMins / 60L}h ${elapsedMins % 60L}m"
+            } else {
+                "${elapsedMins}m"
             }
-            refreshTelemetry()
+
+            if (segmentIsCharging) {
+                // Track live charging session progress or completion using strictly measured wattage
+                val endPct = maxOf(event.batteryPercent, segmentStartPercent)
+                val watts = event.powerWatts ?: (_liveTelemetry.value.liveChargingWatts ?: 0f)
+                val chargerLabel = when {
+                    segmentChargingSource.contains("AC", ignoreCase = true) -> "AC Adapter"
+                    segmentChargingSource.contains("USB", ignoreCase = true) -> "USB Port"
+                    segmentChargingSource.contains("Wireless", ignoreCase = true) -> "Wireless Charger"
+                    else -> "Live Charger"
+                }
+                val session = ChargingSessionEntity(
+                    id = activeChargeSessionId,
+                    dateTimeLabel = "Today, ${event.timeFormatted}",
+                    chargerName = chargerLabel,
+                    startPercent = segmentStartPercent,
+                    endPercent = endPct,
+                    durationLabel = durationLabel,
+                    avgPowerWatts = watts,
+                    peakTempCelsius = if (segmentPeakTempC > 0f) segmentPeakTempC else event.temperatureCelsius,
+                    isSlowBadge = watts in 0.1f..9.9f,
+                    isElevatedTemp = segmentPeakTempC >= 36.0f,
+                    timestamp = event.timestampMs
+                )
+                val wattsLabel = if (watts > 0f) "${watts}W" else "Wattage unavailable"
+                val timelineEvent = TimelineEventEntity(
+                    sessionId = _selectedSessionId.value,
+                    timeLabel = event.timeFormatted,
+                    batteryPercent = event.batteryPercent,
+                    title = if (!event.isCharging) "Charger disconnected" else "Charging milestone (${event.batteryPercent}%)",
+                    detail = "$chargerLabel · ${segmentStartPercent}% → ${endPct}% · $wattsLabel · ${event.temperatureCelsius}°C",
+                    classificationLabel = "Measured",
+                    timestamp = event.timestampMs
+                )
+                val shouldIncrementProfile = !hasIncrementedChargeProfileSession
+                hasIncrementedChargeProfileSession = true
+                repository.recordLiveChargingSession(
+                    session = session,
+                    chargerName = chargerLabel,
+                    observedWatts = watts,
+                    tempCelsius = session.peakTempCelsius,
+                    incrementSessionCount = shouldIncrementProfile,
+                    timelineEvent = timelineEvent
+                )
+            } else if (event.batteryPercent < segmentStartPercent) {
+                // Track live discharging session progress
+                val dropPct = (segmentStartPercent - event.batteryPercent).coerceAtLeast(1)
+                val elapsedHours = (elapsedMs / 3_600_000f).coerceAtLeast(0.1f)
+                val drainRate = ((dropPct / elapsedHours) * 100f).roundToInt() / 100f
+                val historicalBaselineRate = diagnosticSessions.value
+                    .filter { it.id != "live_discharging_session" && it.drainRatePerHr > 0f }
+                    .map { it.drainRatePerHr }
+                    .average()
+                    .takeIf { !it.isNaN() && it > 0.0 }
+                    ?.let { ((it * 100.0).roundToInt() / 100f) }
+                    ?: drainRate
+                val multiplier = if (historicalBaselineRate > 0f) {
+                    ((drainRate / historicalBaselineRate) * 10f).roundToInt() / 10f
+                } else {
+                    1.0f
+                }
+                val snap = _liveTelemetry.value
+                val liveSessionId = "live_discharging_session"
+                val liveSession = DiagnosticSessionEntity(
+                    id = liveSessionId,
+                    title = "Live Discharging Session",
+                    timeWindow = "Tracked today (${event.timeFormatted})",
+                    durationHoursLabel = durationLabel,
+                    drainPercent = dropPct,
+                    isAnomaly = historicalBaselineRate > 0f && drainRate > historicalBaselineRate * 1.5f,
+                    drainRatePerHr = drainRate,
+                    normalDrainRatePerHr = historicalBaselineRate,
+                    startBatteryPercent = segmentStartPercent,
+                    endBatteryPercent = event.batteryPercent,
+                    multiplierVsNormal = multiplier,
+                    overallConfidence = "Measured",
+                    primaryTitle = "Active System & Screen State",
+                    primarySubtitle = "Screen ${snap.screenState} · Wi-Fi ${snap.wifiState}",
+                    primaryConfidence = "Measured",
+                    secondaryTitle = "Cellular & Radio State",
+                    secondarySubtitle = "${snap.mobileState} · Bluetooth ${snap.bluetoothState}",
+                    secondaryConfidence = "Measured",
+                    factorTitle = "Thermal & Voltage Telemetry",
+                    factorSubtitle = "${event.temperatureCelsius}°C · ${event.voltageVolts}V",
+                    factorConfidence = "Measured",
+                    possibleTitle = "Location Subsystem",
+                    possibleSubtitle = "Location ${snap.locationState}",
+                    possibleConfidence = "Possible",
+                    screenOffDuration = if (snap.screenState == "OFF") durationLabel else "0m",
+                    awakeDuration = durationLabel,
+                    weakSignalDuration = "0m",
+                    peakTempCelsius = if (segmentPeakTempC > 0f) segmentPeakTempC else event.temperatureCelsius,
+                    integrityNote = null,
+                    timestamp = event.timestampMs
+                )
+                val timelineEvent = TimelineEventEntity(
+                    sessionId = liveSessionId,
+                    timeLabel = event.timeFormatted,
+                    batteryPercent = event.batteryPercent,
+                    title = "Battery discharged to ${event.batteryPercent}%",
+                    detail = "Live discharge tracked: -${dropPct}% ($drainRate%/hr) · ${event.temperatureCelsius}°C",
+                    classificationLabel = "Measured",
+                    timestamp = event.timestampMs
+                )
+                repository.recordLiveDischargingSession(
+                    session = liveSession,
+                    timelineEvent = timelineEvent
+                )
+                if (_selectedSessionId.value == "last_night" && diagnosticSessions.value.none { it.id == "last_night" }) {
+                    _selectedSessionId.value = liveSessionId
+                }
+            }
+
+            if (powerStateChanged) {
+                segmentStartMs = event.timestampMs
+                segmentStartPercent = event.batteryPercent
+                segmentIsCharging = event.isCharging
+                segmentChargingSource = event.chargingSource
+                segmentPeakTempC = event.temperatureCelsius
+                hasIncrementedChargeProfileSession = false
+                if (event.isCharging) {
+                    activeChargeSessionId += 1L
+                }
+            }
         }
     }
 
@@ -351,6 +423,9 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         val snap = scanner.captureLiveTelemetry(_adbModeEnabled.value)
         _liveTelemetry.value = snap
         _capabilities.value = scanner.scanCapabilities(snap, _adbModeEnabled.value)
+        val realApps = scanner.queryRealAppActivityInsights()
+        _appActivityInsights.value = realApps
+        _activityEstimates.value = scanner.queryRealActivityEstimates(realApps)
     }
 
     fun selectTab(tab: MainTab) {
@@ -384,7 +459,10 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun investigateThursdayAnomaly() {
-        _selectedSessionId.value = "last_night"
+        val targetId = diagnosticSessions.value.firstOrNull { it.isAnomaly }?.id
+            ?: diagnosticSessions.value.firstOrNull()?.id
+            ?: "last_night"
+        _selectedSessionId.value = targetId
         _diagnoseSubTab.value = DiagnoseSubTab.SHOW_ME_WHY
         _showEvidenceChainExpanded.value = true
         _currentTab.value = MainTab.DIAGNOSE
@@ -478,6 +556,43 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    fun getDrainPointsForSessions(
+        sessions: List<DiagnosticSessionEntity>,
+        timeframe: InsightsTimeframe
+    ): List<DayDrainPoint> {
+        if (sessions.isEmpty()) return emptyList()
+        val measuredScreenHours = computeMeasuredForegroundHours()
+        return sessions.reversed().mapIndexed { index, session ->
+            val shortLabel = when (timeframe) {
+                InsightsTimeframe.DAY -> "S${index + 1}"
+                InsightsTimeframe.WEEK -> session.title.take(3)
+                InsightsTimeframe.MONTH -> "W${index + 1}"
+            }
+            DayDrainPoint(
+                dayShort = shortLabel,
+                dayFull = session.title,
+                drainPercent = session.drainPercent,
+                isAnomaly = session.isAnomaly,
+                peakTempCelsius = session.peakTempCelsius,
+                screenHours = measuredScreenHours,
+                idleDrainRate = session.drainRatePerHr
+            )
+        }
+    }
+
+    private fun computeMeasuredForegroundHours(): Float {
+        val insights = _appActivityInsights.value
+        if (insights.isEmpty()) return 0f
+        var totalMins = 0
+        for (item in insights) {
+            val label = item.foregroundDurationLabel
+            val hrs = Regex("(\\d+)h").find(label)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+            val mins = Regex("(\\d+)m").find(label)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+            totalMins += (hrs * 60) + mins
+        }
+        return ((totalMins / 60f) * 10f).roundToInt() / 10f
+    }
+
     fun addTimelineAnnotation(title: String, detail: String) {
         viewModelScope.launch {
             val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
@@ -503,7 +618,7 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             startBatteryPercent = snap.batteryPercent,
             currentBatteryPercent = snap.batteryPercent,
             currentTempCelsius = snap.temperatureCelsius,
-            screenTurnedOnEvents = if (testName.contains("Idle") || testName.contains("Overnight")) 1 else 0,
+            screenTurnedOnEvents = 0,
             networkStateLabel = "Wi-Fi (${snap.wifiState}) · Cellular (${snap.mobileState})",
             isIntegrityCompromised = false,
             integrityNote = null,
@@ -513,13 +628,11 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             for (sec in 1..15) {
                 delay(1000L)
                 val currentRun = _activeTestRun.value ?: break
-                val compromised = (testName.contains("Idle") && sec == 8)
+                val liveSnap = scanner.captureLiveTelemetry(_adbModeEnabled.value)
                 _activeTestRun.value = currentRun.copy(
                     elapsedSeconds = sec,
-                    isIntegrityCompromised = currentRun.isIntegrityCompromised || compromised,
-                    integrityNote = if (currentRun.isIntegrityCompromised || compromised) {
-                        "Test reliability note: Screen remained interactive during Idle sampling window."
-                    } else null
+                    currentBatteryPercent = liveSnap.batteryPercent,
+                    currentTempCelsius = liveSnap.temperatureCelsius
                 )
             }
         }
@@ -530,33 +643,43 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         testRunnerJob?.cancel()
         viewModelScope.launch {
             val id = "test_${System.currentTimeMillis()}"
+            val actualDrop = (run.startBatteryPercent - run.currentBatteryPercent).coerceAtLeast(0)
+            val elapsedHrs = (run.elapsedSeconds / 3600f).coerceAtLeast(0.01f)
+            val measuredRate = ((actualDrop / elapsedHrs) * 100f).roundToInt() / 100f
+            val baselineRate = diagnosticSessions.value
+                .filter { it.drainRatePerHr > 0f }
+                .map { it.drainRatePerHr }
+                .average()
+                .takeIf { !it.isNaN() && it > 0.0 }
+                ?.let { ((it * 100.0).roundToInt() / 100f) }
+                ?: measuredRate
             val newSession = DiagnosticSessionEntity(
                 id = id,
                 title = "${run.testName} Session",
-                timeWindow = "Just now (${run.targetDurationLabel} window)",
+                timeWindow = "Recorded today (${run.targetDurationLabel} window)",
                 durationHoursLabel = run.targetDurationLabel,
-                drainPercent = 2,
+                drainPercent = actualDrop,
                 isAnomaly = false,
-                drainRatePerHr = 1.2f,
-                normalDrainRatePerHr = 0.66f,
+                drainRatePerHr = measuredRate,
+                normalDrainRatePerHr = baselineRate,
                 startBatteryPercent = run.startBatteryPercent,
-                endBatteryPercent = (run.startBatteryPercent - 2).coerceAtLeast(1),
-                multiplierVsNormal = 1.1f,
-                overallConfidence = if (run.isIntegrityCompromised) "Possible" else "Measured",
+                endBatteryPercent = run.currentBatteryPercent,
+                multiplierVsNormal = 1.0f,
+                overallConfidence = "Measured",
                 primaryTitle = "${run.testName} Primary Factor",
                 primarySubtitle = run.networkStateLabel,
                 primaryConfidence = "Measured",
                 secondaryTitle = "Thermal Behavior",
-                secondarySubtitle = "${run.currentTempCelsius}°C steady",
+                secondarySubtitle = "${run.currentTempCelsius}°C measured",
                 secondaryConfidence = "Measured",
                 factorTitle = "Test Integrity Check",
                 factorSubtitle = run.integrityNote ?: "Controlled environment verified",
                 factorConfidence = "Measured",
-                possibleTitle = "Background Sync",
-                possibleSubtitle = "2 events observed during test",
-                possibleConfidence = "Possible",
-                screenOffDuration = if (run.testName.contains("Screen")) "0m" else "28m",
-                awakeDuration = "4m",
+                possibleTitle = "Live Sensor State",
+                possibleSubtitle = "Voltage ${_liveTelemetry.value.voltageVolts}V · Current ${_liveTelemetry.value.currentMilliAmps}mA",
+                possibleConfidence = "Measured",
+                screenOffDuration = if (run.testName.contains("Screen")) "0m" else "${run.elapsedSeconds}s",
+                awakeDuration = "${run.elapsedSeconds}s",
                 weakSignalDuration = "0m",
                 peakTempCelsius = run.currentTempCelsius,
                 integrityNote = run.integrityNote,
@@ -581,18 +704,18 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
                 title = title,
                 hypothesis = hypothesis,
                 testCategory = category,
-                baselineDrainRate = 1.75f,
-                experimentDrainRate = 0.68f,
-                durationMinutes = 360,
-                status = "Completed",
-                confidenceLabel = "Strong Evidence",
-                findingSummary = "Controlled comparison vs baseline showed a 61% reduction in off-screen drain rate (1.75%/hr → 0.68%/hr).",
+                baselineDrainRate = 0.0f,
+                experimentDrainRate = 0.0f,
+                durationMinutes = 60,
+                status = "In Progress — Collecting Data",
+                confidenceLabel = "Insufficient Data",
+                findingSummary = "Experiment created. Keep using your device during the test window so baseline vs experiment drain rates can be measured.",
                 integrityWarning = null,
-                limitationsNote = "Measured on-device via coulomb counter & UsageStats events. Correlation verified across comparable 6h windows.",
+                limitationsNote = "Measured on-device via coulomb counter & UsageStats events.",
                 createdAt = System.currentTimeMillis()
             )
             repository.addExperiment(exp)
-            showBanner("Controlled Experiment '$title' added and evaluated against baseline.")
+            showBanner("Controlled Experiment '$title' started. Data will generate as you use the device.")
         }
     }
 
@@ -618,12 +741,12 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             id = "live_fallback",
             title = "Live Device Snapshot",
             timeWindow = "Current Session",
-            durationHoursLabel = "1 hour",
-            drainPercent = 2,
+            durationHoursLabel = "Live",
+            drainPercent = 0,
             isAnomaly = false,
-            drainRatePerHr = 2.1f,
-            normalDrainRatePerHr = 0.66f,
-            startBatteryPercent = (snap.batteryPercent + 2).coerceAtMost(100),
+            drainRatePerHr = 0f,
+            normalDrainRatePerHr = 0f,
+            startBatteryPercent = snap.batteryPercent,
             endBatteryPercent = snap.batteryPercent,
             multiplierVsNormal = 1.0f,
             overallConfidence = "Measured",
@@ -631,7 +754,7 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             primarySubtitle = "Screen ${snap.screenState} · Wi-Fi ${snap.wifiState}",
             primaryConfidence = "Measured",
             secondaryTitle = "Cellular Radio State",
-            secondarySubtitle = "${snap.mobileState} active",
+            secondarySubtitle = "${snap.mobileState} state",
             secondaryConfidence = "Measured",
             factorTitle = "Battery Temperature",
             factorSubtitle = "${snap.temperatureCelsius}°C (${snap.temperatureStatus})",
@@ -639,32 +762,164 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             possibleTitle = "Location Service",
             possibleSubtitle = "Location ${snap.locationState}",
             possibleConfidence = "Possible",
-            screenOffDuration = "42m",
-            awakeDuration = "18m",
-            weakSignalDuration = "0m",
+            screenOffDuration = "Collecting...",
+            awakeDuration = "Collecting...",
+            weakSignalDuration = "Collecting...",
             peakTempCelsius = snap.temperatureCelsius,
             integrityNote = null,
             timestamp = System.currentTimeMillis()
         )
     }
 
-    fun askAiBatteryDoctor(question: String) {
-        if (question.isBlank()) return
-        viewModelScope.launch {
-            _aiDoctorLoading.value = true
-            val session = diagnosticSessions.value.firstOrNull { it.id == _selectedSessionId.value }
-                ?: diagnosticSessions.value.firstOrNull()
-                ?: buildLiveFallbackSession()
-            val response = aiClient.askForensicQuestion(
-                question = question,
-                snapshot = _liveTelemetry.value,
-                selectedSession = session,
-                adbEnabled = _adbModeEnabled.value,
-                allowCloudAi = !_localStorageOnly.value
-            )
-            _aiDoctorHistory.value = listOf(response) + _aiDoctorHistory.value
-            _aiDoctorLoading.value = false
+    /**
+     * Attempts to enter AI Battery Doctor.
+     * - If already unlocked in the current session, opens the sheet immediately.
+     * - Otherwise triggers a Google Mobile Ads Rewarded Ad and unlocks the session only upon
+     *   receiving the verified OnUserEarnedRewardListener callback.
+     */
+    fun requestEnterAiDoctor(
+        activity: Activity?,
+        onOpenSheet: () -> Unit,
+        onShowInteractiveTestAd: (() -> Unit)? = null
+    ) {
+        if (_isAiDoctorSessionUnlocked.value || AiDoctorSessionManager.isUnlocked.value) {
+            _isAiDoctorSessionUnlocked.value = true
+            onOpenSheet()
+            return
         }
+
+        rewardedAdManager.showRewardedAd(
+            activity = activity,
+            rewardType = "ai_doctor_session",
+            onRewardEarned = { amount, type ->
+                val unlocked = onRewardAdEarnedCallback(amount, type)
+                if (unlocked) {
+                    onOpenSheet()
+                }
+            },
+            onShowInteractiveTestAd = onShowInteractiveTestAd
+        )
+    }
+
+    /**
+     * Verifies the Google Mobile Ads OnUserEarnedRewardListener callback and toggles the
+     * local session 'unlocked' state.
+     */
+    fun onRewardAdEarnedCallback(amount: Int = 1, type: String = "ai_doctor_session"): Boolean {
+        val unlocked = AiDoctorSessionManager.unlockForCurrentSession(amount, type)
+        _isAiDoctorSessionUnlocked.value = unlocked
+        if (unlocked) {
+            showBanner("AI Battery Doctor unlocked for this session.")
+        }
+        return _isAiDoctorSessionUnlocked.value
+    }
+
+    fun unlockAiDoctorForSession() {
+        onRewardAdEarnedCallback()
+    }
+
+    /**
+     * Rewarded Video Ad #2: Unlocks PDF/CSV/JSON Forensic Report Export for the current session.
+     */
+    fun requestUnlockExportWithRewardAd(activity: Activity?) {
+        if (_isExportSessionUnlocked.value || AiDoctorSessionManager.isExportUnlocked.value) {
+            _isExportSessionUnlocked.value = true
+            return
+        }
+
+        rewardedAdManager.showRewardedAd(
+            activity = activity,
+            rewardType = "export_report_session",
+            onRewardEarned = { _, _ ->
+                onExportRewardAdEarnedCallback()
+            }
+        )
+    }
+
+    fun onExportRewardAdEarnedCallback(pendingFormat: String? = null): Boolean {
+        val unlocked = AiDoctorSessionManager.unlockExportForCurrentSession()
+        _isExportSessionUnlocked.value = unlocked
+        if (unlocked && !pendingFormat.isNullOrBlank()) {
+            exportReport(pendingFormat)
+        } else if (unlocked) {
+            showBanner("Forensic Report Export unlocked for this session.")
+        }
+        return _isExportSessionUnlocked.value
+    }
+
+    /**
+     * Video Ad #1 (Interstitial Video): Triggered upon Diagnostic Test or Controlled Experiment completion.
+     */
+    fun requestVideoAd1DiagnosticCompletion(activity: Activity?) {
+        rewardedAdManager.showVideoAd1DiagnosticCompletion(
+            activity = activity,
+            onAdCompleted = {
+                onVideoAd1CompletedCallback()
+            }
+        )
+    }
+
+    fun onVideoAd1CompletedCallback(): Int {
+        val count = AiDoctorSessionManager.recordVideoAd1Completed()
+        _videoAd1ShownCount.value = count
+        return count
+    }
+
+    /**
+     * Video Ad #2 (Rewarded Interstitial Video): Unlocks the Deep Health & Thermal Stress Benchmark in Charging tab.
+     */
+    fun requestVideoAd2ChargingBenchmark(activity: Activity?) {
+        if (_isDeepBenchmarkUnlocked.value || AiDoctorSessionManager.isDeepBenchmarkUnlocked.value) {
+            _isDeepBenchmarkUnlocked.value = true
+            return
+        }
+
+        rewardedAdManager.showVideoAd2ChargingBenchmark(
+            activity = activity,
+            onBenchmarkUnlocked = {
+                onVideoAd2BenchmarkUnlockedCallback()
+            }
+        )
+    }
+
+    fun onVideoAd2BenchmarkUnlockedCallback(): Boolean {
+        val unlocked = AiDoctorSessionManager.unlockDeepBenchmarkForCurrentSession()
+        _isDeepBenchmarkUnlocked.value = unlocked
+        if (unlocked) {
+            showBanner("Deep Health & Thermal Stress Benchmark unlocked for this session.")
+        }
+        return _isDeepBenchmarkUnlocked.value
+    }
+
+    fun resetAiDoctorSessionUnlock() {
+        AiDoctorSessionManager.resetSession()
+        _isAiDoctorSessionUnlocked.value = false
+        _isExportSessionUnlocked.value = false
+        _isDeepBenchmarkUnlocked.value = false
+        _videoAd1ShownCount.value = 0
+        _selectedAiDoctorQuestion.value = null
+        _generatedAiDoctorPrompt.value = null
+    }
+
+    fun generateDynamicPromptForQuestion(question: String) {
+        if (question.isBlank()) return
+        refreshTelemetry()
+        val session = diagnosticSessions.value.firstOrNull { it.id == _selectedSessionId.value }
+            ?: diagnosticSessions.value.firstOrNull()
+            ?: buildLiveFallbackSession()
+        val prompt = aiClient.buildGeminiForensicPrompt(
+            question = question,
+            snapshot = _liveTelemetry.value,
+            session = session,
+            adbEnabled = _adbModeEnabled.value,
+            appInsights = _appActivityInsights.value
+        )
+        _selectedAiDoctorQuestion.value = question
+        _generatedAiDoctorPrompt.value = prompt
+    }
+
+    fun notifyPromptCopied() {
+        showBanner("Prompt copied to clipboard.")
     }
 
     fun exportReport(format: String) {
@@ -709,13 +964,14 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteAllUserData(reseedDemoBaseline: Boolean = false) {
         viewModelScope.launch {
-            prefs.edit().putBoolean("user_deleted_all_data", !reseedDemoBaseline).apply()
             repository.deleteAllDataAndReset(reseedDemoBaseline)
+            segmentStartPercent = -1
+            lastObservedPercent = -1
             if (reseedDemoBaseline) {
                 _selectedSessionId.value = "last_night"
             }
             showBanner(
-                if (reseedDemoBaseline) "All local data reset to initial baseline."
+                if (reseedDemoBaseline) "Sample demo data loaded for preview."
                 else "All local diagnostic sessions, timeline events, and profiles permanently deleted."
             )
         }

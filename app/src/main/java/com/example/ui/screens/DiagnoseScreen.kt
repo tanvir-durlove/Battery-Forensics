@@ -82,6 +82,8 @@ fun DiagnoseScreen(
     onAddTimelineAnnotation: (String, String) -> Unit,
     onNavigateToAdbSettings: () -> Unit,
     onOpenAiDoctor: () -> Unit,
+    videoAd1ShownCount: Int = 0,
+    onTriggerVideoAd1: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val selectedSession = sessions.firstOrNull { it.id == selectedSessionId } ?: sessions.firstOrNull()
@@ -150,7 +152,131 @@ fun DiagnoseScreen(
             )
         }
 
-        if (subTab == DiagnoseSubTab.SHOW_ME_WHY && selectedSession != null) {
+        if (subTab == DiagnoseSubTab.SHOW_ME_WHY) {
+            if (selectedSession == null) {
+                item {
+                    ForensicsCard(
+                        containerColor = ForensicsPalette.BlueSoftTile,
+                        modifier = Modifier.testTag("diagnose_data_collection_card")
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Data collection in progress",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.BluePrimary
+                                )
+                                ClassificationBadge(
+                                    text = "Calibrating",
+                                    containerColor = ForensicsPalette.BlueContainer,
+                                    contentColor = ForensicsPalette.BluePrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Keep using your phone normally — live charging and discharging events are being tracked. Period breakdowns, contributor rankings, and traceable evidence chains will generate soon once enough battery history has been recorded.",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = { onSelectSubTab(DiagnoseSubTab.TESTS_AND_EXPERIMENTS) },
+                                colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "Run a Live Diagnostic Test Now →",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    ForensicsCard(containerColor = ForensicsPalette.SubtleSurface) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
+                        ) {
+                            if (!adbModeEnabled) {
+                                Text(
+                                    text = "Standard Mode Limitations",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                LimitationBullet("Exact per-app battery consumption — unavailable")
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LimitationBullet("System-wide wakelocks — ADB mode required")
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LimitationBullet("True deep-sleep data — not exposed by OEM")
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Enable ADB Mode →",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.BluePrimary,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable { onNavigateToAdbSettings() }
+                                        .padding(vertical = 2.dp)
+                                        .testTag("enable_adb_mode_link")
+                                )
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "ADB-Derived Diagnostic Data",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ForensicsPalette.GreenPrimary
+                                    )
+                                    ClassificationBadge(
+                                        text = "ADB Mode Active",
+                                        containerColor = ForensicsPalette.GreenContainer,
+                                        contentColor = ForensicsPalette.GreenPrimary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                adbWakelocks.forEach { wl ->
+                                    Column(modifier = Modifier.padding(vertical = 5.dp)) {
+                                        Text(
+                                            text = wl.tag,
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ForensicsPalette.TextPrimary
+                                        )
+                                        Text(
+                                            text = "${wl.type} · ${wl.ownerAppOrProcess} · ${wl.totalDuration}",
+                                            fontSize = 11.sp,
+                                            color = ForensicsPalette.TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+            } else {
             // SELECT PERIOD Card (Screenshot 2)
             item {
                 ForensicsCard {
@@ -731,6 +857,7 @@ fun DiagnoseScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(20.dp))
+            }
             }
         } else {
             // Sub-tab 2: Tests & Experiments (Screenshot 3)

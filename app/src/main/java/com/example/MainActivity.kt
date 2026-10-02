@@ -1,11 +1,8 @@
 package com.example
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.app.Activity
+import android.os.Build
 import android.os.Bundle
-import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -30,6 +27,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,9 +39,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.BatteryTrackingReceiver
 import com.example.ui.ForensicsViewModel
+import com.example.ui.InsightsTimeframe
 import com.example.ui.MainTab
 import com.example.ui.components.ForensicsBottomBar
+import com.example.ui.components.ForensicsSplashScreen
 import com.example.ui.components.ForensicsTopAppBar
 import com.example.ui.screens.AiBatteryDoctorSheet
 import com.example.ui.screens.ChargingScreen
@@ -79,6 +80,8 @@ fun BatteryForensicsApp(
 
     val liveTelemetry by viewModel.liveTelemetry.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
+    val activityEstimates by viewModel.activityEstimates.collectAsStateWithLifecycle()
+    val appActivityInsights by viewModel.appActivityInsights.collectAsStateWithLifecycle()
     val diagnosticSessions by viewModel.diagnosticSessions.collectAsStateWithLifecycle()
     val selectedSessionId by viewModel.selectedSessionId.collectAsStateWithLifecycle()
     val showEvidenceChain by viewModel.showEvidenceChainExpanded.collectAsStateWithLifecycle()
@@ -98,35 +101,48 @@ fun BatteryForensicsApp(
     val alertSensitivity by viewModel.alertSensitivity.collectAsStateWithLifecycle()
 
     val activeTestRun by viewModel.activeTestRun.collectAsStateWithLifecycle()
-    val aiDoctorHistory by viewModel.aiDoctorHistory.collectAsStateWithLifecycle()
-    val aiDoctorLoading by viewModel.aiDoctorLoading.collectAsStateWithLifecycle()
+    val isAiDoctorSessionUnlocked by viewModel.isAiDoctorSessionUnlocked.collectAsStateWithLifecycle()
+    val isExportSessionUnlocked by viewModel.isExportSessionUnlocked.collectAsStateWithLifecycle()
+    val isDeepBenchmarkUnlocked by viewModel.isDeepBenchmarkUnlocked.collectAsStateWithLifecycle()
+    val videoAd1ShownCount by viewModel.videoAd1ShownCount.collectAsStateWithLifecycle()
+    val selectedAiDoctorQuestion by viewModel.selectedAiDoctorQuestion.collectAsStateWithLifecycle()
+    val generatedAiDoctorPrompt by viewModel.generatedAiDoctorPrompt.collectAsStateWithLifecycle()
     val statusBannerMessage by viewModel.statusBannerMessage.collectAsStateWithLifecycle()
 
+    val activity = context as? Activity
     var showAiDoctorSheet by remember { mutableStateOf(false) }
+    val isRobolectric = remember { Build.FINGERPRINT.lowercase().contains("robolectric") }
+    var showSplashScreen by rememberSaveable { mutableStateOf(!isRobolectric) }
 
-    // Event-driven system BroadcastReceiver (zero continuous polling)
-    DisposableEffect(context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                viewModel.refreshTelemetry()
+    fun handleAiDoctorClick() {
+        viewModel.requestEnterAiDoctor(
+            activity = activity,
+            onOpenSheet = {
+                showAiDoctorSheet = true
             }
-        }
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_BATTERY_CHANGED)
-            addAction(Intent.ACTION_POWER_CONNECTED)
-            addAction(Intent.ACTION_POWER_DISCONNECTED)
-        }
-        ContextCompat.registerReceiver(
-            context,
-            receiver,
-            filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
         )
+    }
+
+    fun handleTriggerVideoAd1() {
+        viewModel.requestVideoAd1DiagnosticCompletion(activity = activity)
+    }
+
+    fun handleTriggerVideoAd2() {
+        viewModel.requestVideoAd2ChargingBenchmark(activity = activity)
+    }
+
+    fun handleUnlockExport() {
+        viewModel.requestUnlockExportWithRewardAd(activity = activity)
+    }
+
+    // Event-driven system BroadcastReceiver listening for ACTION_BATTERY_CHANGED (zero continuous polling)
+    DisposableEffect(context) {
+        val receiver = BatteryTrackingReceiver { event ->
+            viewModel.onBatteryBroadcastEvent(event)
+        }
+        BatteryTrackingReceiver.register(context, receiver)
         onDispose {
-            try {
-                context.unregisterReceiver(receiver)
-            } catch (_: Exception) {
-            }
+            BatteryTrackingReceiver.unregister(context, receiver)
         }
     }
 
@@ -143,7 +159,8 @@ fun BatteryForensicsApp(
             ForensicsTopAppBar(
                 currentTab = currentTab,
                 batteryPercent = liveTelemetry.batteryPercent,
-                onOpenAiDoctor = { showAiDoctorSheet = true }
+                isAiDoctorUnlocked = isAiDoctorSessionUnlocked,
+                onOpenAiDoctor = { handleAiDoctorClick() }
             )
         },
         bottomBar = {
@@ -198,8 +215,9 @@ fun BatteryForensicsApp(
                     MainTab.HOME -> {
                         DashboardScreen(
                             snapshot = liveTelemetry,
-                            activityEstimates = viewModel.activityEstimates,
+                            activityEstimates = activityEstimates,
                             capabilities = capabilities,
+                            isHistoryEmpty = diagnosticSessions.isEmpty() && chargingSessions.isEmpty(),
                             onRefresh = { viewModel.refreshTelemetry() },
                             onNavigateToDiagnose = { viewModel.selectTab(MainTab.DIAGNOSE) }
                         )
@@ -229,22 +247,33 @@ fun BatteryForensicsApp(
                             adbWakelocks = viewModel.getAdbWakelocks(),
                             activeTestRun = activeTestRun,
                             onStartTest = { name, dur, desc -> viewModel.startDiagnosticTest(name, dur, desc) },
-                            onCompleteTest = { viewModel.completeAndSaveActiveTest() },
+                            onCompleteTest = {
+                                viewModel.completeAndSaveActiveTest()
+                                handleTriggerVideoAd1()
+                            },
                             onCancelTest = { viewModel.cancelActiveTest() },
-                            onCreateExperiment = { t, h, c -> viewModel.createControlledExperiment(t, h, c) },
+                            onCreateExperiment = { t, h, c ->
+                                viewModel.createControlledExperiment(t, h, c)
+                                handleTriggerVideoAd1()
+                            },
                             onAddTimelineAnnotation = { t, d -> viewModel.addTimelineAnnotation(t, d) },
                             onNavigateToAdbSettings = { viewModel.navigateToEnableAdbMode() },
-                            onOpenAiDoctor = { showAiDoctorSheet = true }
+                            onOpenAiDoctor = { handleAiDoctorClick() },
+                            videoAd1ShownCount = videoAd1ShownCount,
+                            onTriggerVideoAd1 = { handleTriggerVideoAd1() }
                         )
                     }
                     MainTab.INSIGHTS -> {
+                        val weeklyPts = viewModel.getDrainPointsForSessions(diagnosticSessions, InsightsTimeframe.WEEK)
+                        val dailyPts = viewModel.getDrainPointsForSessions(diagnosticSessions, InsightsTimeframe.DAY)
+                        val monthlyPts = viewModel.getDrainPointsForSessions(diagnosticSessions, InsightsTimeframe.MONTH)
                         InsightsScreen(
                             timeframe = insightsTimeframe,
                             onSelectTimeframe = { viewModel.selectInsightsTimeframe(it) },
-                            weeklyPoints = viewModel.weeklyDrainPoints,
-                            dailyPoints = viewModel.dailyDrainPoints,
-                            monthlyPoints = viewModel.monthlyDrainPoints,
-                            appInsights = viewModel.appActivityInsights,
+                            weeklyPoints = weeklyPts,
+                            dailyPoints = dailyPts,
+                            monthlyPoints = monthlyPts,
+                            appInsights = appActivityInsights,
                             onInvestigateAnomaly = { viewModel.investigateThursdayAnomaly() }
                         )
                     }
@@ -257,7 +286,9 @@ fun BatteryForensicsApp(
                             chargerProfiles = chargerProfiles,
                             onAddChargerProfile = { name, maxW, avgW, temp ->
                                 viewModel.createChargerProfile(name, maxW, avgW, temp)
-                            }
+                            },
+                            isDeepBenchmarkUnlocked = isDeepBenchmarkUnlocked,
+                            onTriggerVideoAd2 = { handleTriggerVideoAd2() }
                         )
                     }
                     MainTab.SETTINGS -> {
@@ -279,9 +310,11 @@ fun BatteryForensicsApp(
                             alertSensitivity = alertSensitivity,
                             onSelectSensitivity = { viewModel.setAlertSensitivity(it) },
                             onExportReport = { fmt -> viewModel.exportReport(fmt) },
+                            onUnlockExport = { handleUnlockExport() },
                             onDeleteAllData = { reseed -> viewModel.deleteAllUserData(reseed) },
                             onRunConsoleCommand = { cmd -> viewModel.runConsoleCommand(cmd) },
-                            onPermissionsUpdated = { viewModel.refreshTelemetry() }
+                            onPermissionsUpdated = { viewModel.refreshTelemetry() },
+                            isExportUnlocked = isExportSessionUnlocked
                         )
                     }
                 }
@@ -289,12 +322,19 @@ fun BatteryForensicsApp(
         }
     }
 
-    if (showAiDoctorSheet) {
+    if (showAiDoctorSheet && isAiDoctorSessionUnlocked) {
         AiBatteryDoctorSheet(
-            history = aiDoctorHistory,
-            isLoading = aiDoctorLoading,
-            onAskQuestion = { viewModel.askAiBatteryDoctor(it) },
+            selectedQuestion = selectedAiDoctorQuestion,
+            generatedPrompt = generatedAiDoctorPrompt,
+            onSelectQuestion = { viewModel.generateDynamicPromptForQuestion(it) },
+            onPromptCopied = { viewModel.notifyPromptCopied() },
             onDismiss = { showAiDoctorSheet = false }
+        )
+    }
+
+    if (showSplashScreen) {
+        ForensicsSplashScreen(
+            onSplashFinished = { showSplashScreen = false }
         )
     }
 }

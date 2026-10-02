@@ -53,6 +53,7 @@ import com.example.data.LiveTelemetrySnapshot
 import com.example.ui.components.CapabilityStatusGraphicBadge
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.ForensicsCard
+import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.theme.ForensicsPalette
 import kotlin.math.cos
 import kotlin.math.sin
@@ -62,6 +63,7 @@ fun DashboardScreen(
     snapshot: LiveTelemetrySnapshot,
     activityEstimates: List<ActivityEstimateItem>,
     capabilities: List<CapabilityItem>,
+    isHistoryEmpty: Boolean = false,
     onRefresh: () -> Unit,
     onNavigateToDiagnose: () -> Unit,
     modifier: Modifier = Modifier
@@ -114,6 +116,46 @@ fun DashboardScreen(
                         fontWeight = FontWeight.SemiBold,
                         color = ForensicsPalette.TextSecondary
                     )
+                }
+            }
+        }
+
+        // Data collection in progress card when battery history is empty
+        if (isHistoryEmpty) {
+            item {
+                ForensicsCard(
+                    containerColor = ForensicsPalette.BlueSoftTile,
+                    modifier = Modifier.testTag("data_collection_in_progress_card")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Data collection in progress",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.BluePrimary
+                            )
+                            ClassificationBadge(
+                                text = "Live Tracking",
+                                containerColor = ForensicsPalette.BlueContainer,
+                                contentColor = ForensicsPalette.BluePrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Tracking live charging and discharging events. Keep using your device normally — battery history, drain rate estimates, and session breakdowns will generate soon.",
+                            fontSize = 13.sp,
+                            color = ForensicsPalette.TextPrimary
+                        )
+                    }
                 }
             }
         }
@@ -172,6 +214,14 @@ fun DashboardScreen(
             }
         }
 
+        // Native Ad Card (Above the Fold — Top of Home Dashboard)
+        item {
+            InlineForensicsAdBannerCard(
+                placementLabel = "Hardware Diagnostics",
+                tagName = "home_inline_ad_card"
+            )
+        }
+
         // 2x2 Metric Grid Cards (Temperature, Voltage, Current, Health Score)
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -211,7 +261,7 @@ fun DashboardScreen(
                         badgeText = snapshot.currentClassification.label,
                         badgeBg = ForensicsPalette.PurpleContainer,
                         badgeTextColor = ForensicsPalette.PurplePrimary,
-                        mainValue = "${snapshot.currentMilliAmps}",
+                        mainValue = if (snapshot.currentMilliAmps != 0) "${snapshot.currentMilliAmps}" else "—",
                         unit = " mA",
                         valueColor = ForensicsPalette.PurpleBright,
                         subtitle = snapshot.currentStatus,
@@ -222,10 +272,10 @@ fun DashboardScreen(
                         badgeText = snapshot.healthScoreClassification.label,
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
-                        mainValue = "${snapshot.healthScore}",
-                        unit = " /100",
+                        mainValue = if (snapshot.healthScore > 0) "${snapshot.healthScore}" else "—",
+                        unit = if (snapshot.healthScore > 0) " /100" else " Calibrating",
                         valueColor = ForensicsPalette.GreenPrimary,
-                        subtitle = "App estimate",
+                        subtitle = if (snapshot.healthScore > 0) "App estimate" else "Charge to estimate",
                         onClick = { showHealthModal = true },
                         modifier = Modifier
                             .weight(1f)
@@ -341,54 +391,75 @@ fun DashboardScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    activityEstimates.forEachIndexed { index, item ->
-                        val barColor = when (item.colorCategory) {
-                            "blue" -> ForensicsPalette.BlueBright
-                            "orange" -> ForensicsPalette.TemperatureOrange
-                            "purple" -> ForensicsPalette.PurpleBright
-                            "brown" -> ForensicsPalette.AmberPrimary
-                            else -> ForensicsPalette.TextSecondary
-                        }
-                        Row(
+                    if (activityEstimates.isEmpty()) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ForensicsPalette.SubtleSurface)
+                                .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                                .padding(14.dp)
                         ) {
                             Text(
-                                text = item.name,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = ForensicsPalette.TextPrimary,
-                                modifier = Modifier.weight(1.35f)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .weight(0.9f)
-                                    .height(8.dp)
-                                    .clip(CircleShape)
-                                    .background(ForensicsPalette.SubtleSurfaceAlt)
-                                    .border(0.8.dp, ForensicsPalette.BorderSubtle, CircleShape)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth((item.percentage / 100f).coerceIn(0.08f, 1f))
-                                        .height(8.dp)
-                                        .clip(CircleShape)
-                                        .background(barColor)
-                                )
-                            }
-                            Text(
-                                text = "${item.percentage}%",
+                                text = if (snapshot.usageAccessGranted) {
+                                    "Keep using your device — activity estimates will generate soon as usage data is collected."
+                                } else {
+                                    "Keep using your device — activity data will generate soon. Grant Usage Access in Settings → Permissions for per-app activity breakdown."
+                                },
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = barColor,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.width(44.dp)
+                                color = ForensicsPalette.TextSecondary
                             )
                         }
-                        if (index < activityEstimates.lastIndex) {
-                            Spacer(modifier = Modifier.height(2.dp))
+                    } else {
+                        activityEstimates.forEachIndexed { index, item ->
+                            val barColor = when (item.colorCategory) {
+                                "blue" -> ForensicsPalette.BlueBright
+                                "orange" -> ForensicsPalette.TemperatureOrange
+                                "purple" -> ForensicsPalette.PurpleBright
+                                "brown" -> ForensicsPalette.AmberPrimary
+                                else -> ForensicsPalette.TextSecondary
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = item.name,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = ForensicsPalette.TextPrimary,
+                                    modifier = Modifier.weight(1.35f)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(0.9f)
+                                        .height(8.dp)
+                                        .clip(CircleShape)
+                                        .background(ForensicsPalette.SubtleSurfaceAlt)
+                                        .border(0.8.dp, ForensicsPalette.BorderSubtle, CircleShape)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth((item.percentage / 100f).coerceIn(0.08f, 1f))
+                                            .height(8.dp)
+                                            .clip(CircleShape)
+                                            .background(barColor)
+                                    )
+                                }
+                                Text(
+                                    text = "${item.percentage}%",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = barColor,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.width(44.dp)
+                                )
+                            }
+                            if (index < activityEstimates.lastIndex) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -468,16 +539,20 @@ fun DashboardScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "App-Generated Health Score: ${snapshot.healthScore}/100 (Estimated)",
+                        text = if (snapshot.healthScore > 0) {
+                            "App-Generated Health Score: ${snapshot.healthScore}/100 (Estimated)"
+                        } else {
+                            "Health Score: Calibrating — Keep using & charge your device to generate score"
+                        },
                         fontWeight = FontWeight.SemiBold,
                         color = ForensicsPalette.GreenPrimary
                     )
                     Text(
-                        text = "• Design Capacity: ${snapshot.designCapacityMah} mAh (Device spec)\n" +
-                            "• Estimated Full Capacity: ~${snapshot.estimatedFullCapacityMah} mAh (~94.0%)\n" +
+                        text = "• Design Capacity: ${if (snapshot.designCapacityMah > 0) "${snapshot.designCapacityMah} mAh" else "Waiting for charge cycle"}\n" +
+                            "• Estimated Full Capacity: ${if (snapshot.estimatedFullCapacityMah > 0) "~${snapshot.estimatedFullCapacityMah} mAh" else "Collecting coulomb-counter data — keep using your phone"}\n" +
                             "• Cycle Count: ${snapshot.cycleCount?.let { "$it cycles (Measured)" } ?: "Data unavailable on this device/OEM"}\n" +
-                            "• Thermal Behavior: Normal (28.4°C current, 30.1°C avg charge)\n" +
-                            "• Charging Curve: Consistent 80% CC/CV taper",
+                            "• Thermal Behavior: ${snapshot.temperatureStatus} (${snapshot.temperatureCelsius}°C live)\n" +
+                            "• System Health Status: ${snapshot.healthLabel} (Measured)",
                         fontSize = 13.sp,
                         color = ForensicsPalette.TextSecondary
                     )

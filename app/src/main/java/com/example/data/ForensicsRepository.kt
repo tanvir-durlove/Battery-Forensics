@@ -346,6 +346,62 @@ class ForensicsRepository(private val dao: ForensicsDao) {
         dao.insertDiagnosticSession(session)
     }
 
+    suspend fun recordLiveDischargingSession(
+        session: DiagnosticSessionEntity,
+        timelineEvent: TimelineEventEntity? = null
+    ) {
+        dao.insertDiagnosticSession(session)
+        if (timelineEvent != null) {
+            dao.insertTimelineEvent(timelineEvent)
+        }
+    }
+
+    suspend fun recordLiveChargingSession(
+        session: ChargingSessionEntity,
+        chargerName: String,
+        observedWatts: Float,
+        tempCelsius: Float,
+        incrementSessionCount: Boolean,
+        timelineEvent: TimelineEventEntity? = null
+    ) {
+        dao.insertChargingSession(session)
+        if (observedWatts > 0f) {
+            val currentProfiles = dao.getAllChargerProfiles().first()
+            val existing = currentProfiles.firstOrNull { it.name.equals(chargerName, ignoreCase = true) }
+            if (existing != null) {
+                val updatedCount = if (incrementSessionCount) existing.sessionsCount + 1 else existing.sessionsCount
+                val updatedMaxW = maxOf(existing.maxObservedWatts, observedWatts)
+                val updatedAvgW = kotlin.math.round(((existing.avgPowerWatts + observedWatts) / 2f) * 10f) / 10f
+                val updatedTemp = if (tempCelsius > 0f) {
+                    kotlin.math.round(((existing.avgTempCelsius + tempCelsius) / 2f) * 10f) / 10f
+                } else existing.avgTempCelsius
+                dao.insertChargerProfile(
+                    existing.copy(
+                        sessionsCount = updatedCount,
+                        maxObservedWatts = updatedMaxW,
+                        avgPowerWatts = updatedAvgW,
+                        avgTempCelsius = updatedTemp,
+                        colorTheme = if (updatedMaxW >= 20f) "green" else if (updatedMaxW >= 12f) "blue" else "amber"
+                    )
+                )
+            } else {
+                dao.insertChargerProfile(
+                    ChargerProfileEntity(
+                        name = chargerName,
+                        sessionsCount = 1,
+                        maxObservedWatts = observedWatts,
+                        avgPowerWatts = observedWatts,
+                        avgTempCelsius = if (tempCelsius > 0f) tempCelsius else 29.0f,
+                        colorTheme = if (observedWatts >= 20f) "green" else if (observedWatts >= 12f) "blue" else "amber"
+                    )
+                )
+            }
+        }
+        if (timelineEvent != null) {
+            dao.insertTimelineEvent(timelineEvent)
+        }
+    }
+
     suspend fun addChargerProfile(profile: ChargerProfileEntity) {
         dao.insertChargerProfile(profile)
     }

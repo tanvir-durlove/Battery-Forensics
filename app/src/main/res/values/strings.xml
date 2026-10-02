@@ -14,4 +14,7 @@
     <string name="disclaimer_battery_attribution">Battery attribution unavailable · Activity-based estimate only</string>
     <string name="data_unavailable_device">Data unavailable on this device/Android version.</string>
     <string name="insufficient_data_message">Insufficient data to identify the cause.</string>
+    <string name="google_app_id" translatable="false">1:394025609994:android:3347511713abcdef</string>
+    <string name="gcm_defaultSenderId" translatable="false">394025609994</string>
+    <string name="project_id" translatable="false">battery-forensics-local</string>
 </resources>

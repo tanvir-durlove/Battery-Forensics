@@ -79,13 +79,14 @@ fun SettingsScreen(
     alertSensitivity: AlertSensitivity,
     onSelectSensitivity: (AlertSensitivity) -> Unit,
     onExportReport: (String) -> Unit,
+    onUnlockExport: () -> Unit = {},
     onDeleteAllData: (Boolean) -> Unit,
     onRunConsoleCommand: (String) -> String,
     onPermissionsUpdated: () -> Unit,
+    isExportUnlocked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showExportModal by remember { mutableStateOf(false) }
     var showDeleteConfirmModal by remember { mutableStateOf(false) }
     var activeDeveloperTool by remember { mutableStateOf<String?>(null) }
 
@@ -220,8 +221,8 @@ fun SettingsScreen(
                             PermissionItemRow(
                                 title = "Usage Access",
                                 description = "App usage duration and foreground/background events",
-                                isGranted = true,
-                                deniedConsequence = null,
+                                isGranted = snapshot.usageAccessGranted,
+                                deniedConsequence = "Per-app activity & background event counts unavailable",
                                 onGrantClick = {
                                     try {
                                         context.startActivity(
@@ -299,8 +300,8 @@ fun SettingsScreen(
                             PermissionItemRow(
                                 title = "Phone State",
                                 description = "Cellular network type (5G / LTE)",
-                                isGranted = true,
-                                deniedConsequence = null,
+                                isGranted = snapshot.phoneStateGranted,
+                                deniedConsequence = "5G vs LTE network generation unavailable",
                                 onGrantClick = {
                                     permissionLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))
                                 }
@@ -411,31 +412,108 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             val btnShape = RoundedCornerShape(14.dp)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(btnShape)
-                                    .background(ForensicsPalette.SubtleSurface)
-                                    .border(1.dp, ForensicsPalette.BorderStrong, btnShape)
-                                    .clickable { showExportModal = true }
-                                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                                    .testTag("export_all_data_button"),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Export all data",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.TextPrimary
-                                )
-                                Text(
-                                    text = "JSON · CSV · PDF",
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Medium,
-                                    color = ForensicsPalette.TextSecondary
-                                )
+                            if (!isExportUnlocked) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(btnShape)
+                                        .background(ForensicsPalette.SubtleSurface)
+                                        .border(1.dp, ForensicsPalette.BorderStrong, btnShape)
+                                        .clickable { onUnlockExport() }
+                                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                                        .testTag("export_all_data_button"),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Export all data",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ForensicsPalette.TextPrimary
+                                        )
+                                        Text(
+                                            text = "JSON · CSV · PDF",
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Medium,
+                                            color = ForensicsPalette.TextSecondary
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(ForensicsPalette.GreenPrimary)
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = "Unlock",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(btnShape)
+                                        .background(ForensicsPalette.SubtleSurface)
+                                        .border(1.dp, ForensicsPalette.BorderStrong, btnShape)
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Export all data",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ForensicsPalette.TextPrimary
+                                        )
+                                        ClassificationBadge(
+                                            text = "Unlocked",
+                                            containerColor = ForensicsPalette.GreenContainer,
+                                            contentColor = ForensicsPalette.GreenPrimary
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { onExportReport("PDF") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.GreenPrimary),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("export_pdf_button")
+                                        ) {
+                                            Text("PDF", fontWeight = FontWeight.Bold)
+                                        }
+                                        Button(
+                                            onClick = { onExportReport("CSV") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("export_csv_button")
+                                        ) {
+                                            Text("CSV", fontWeight = FontWeight.Bold)
+                                        }
+                                        Button(
+                                            onClick = { onExportReport("JSON") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.PurplePrimary),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("export_json_button")
+                                        ) {
+                                            Text("JSON", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.height(10.dp))
                             Row(
@@ -688,7 +766,11 @@ fun SettingsScreen(
                                         .fillMaxWidth()
                                         .clickable {
                                             if (itemTitle == "Raw data export") {
-                                                showExportModal = true
+                                                if (isExportUnlocked) {
+                                                    onExportReport("JSON")
+                                                } else {
+                                                    onUnlockExport()
+                                                }
                                             } else {
                                                 activeDeveloperTool = itemTitle
                                             }
@@ -852,57 +934,6 @@ fun SettingsScreen(
                 }
             }
         }
-    }
-
-    if (showExportModal) {
-        AlertDialog(
-            onDismissRequest = { showExportModal = false },
-            title = { Text("Export Forensic Data & Reports", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Choose an export format. You control exactly what diagnostic records are shared:",
-                        fontSize = 13.sp,
-                        color = ForensicsPalette.TextSecondary
-                    )
-                    Button(
-                        onClick = {
-                            showExportModal = false
-                            onExportReport("PDF")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.GreenPrimary)
-                    ) {
-                        Text("PDF Diagnostic Report (Full Evidence Chain)")
-                    }
-                    Button(
-                        onClick = {
-                            showExportModal = false
-                            onExportReport("CSV")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary)
-                    ) {
-                        Text("CSV Spreadsheet (Sessions & Charging)")
-                    }
-                    Button(
-                        onClick = {
-                            showExportModal = false
-                            onExportReport("JSON")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.PurplePrimary)
-                    ) {
-                        Text("JSON Raw Telemetry & Profiles")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showExportModal = false }) {
-                    Text("Close")
-                }
-            }
-        )
     }
 
     if (showDeleteConfirmModal) {

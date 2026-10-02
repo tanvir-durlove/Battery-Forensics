@@ -55,8 +55,11 @@ import com.example.data.DayDrainPoint
 import com.example.ui.InsightsTimeframe
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.ForensicsCard
+import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
 import com.example.ui.theme.ForensicsPalette
+import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun InsightsScreen(
@@ -74,6 +77,7 @@ fun InsightsScreen(
         InsightsTimeframe.WEEK -> weeklyPoints
         InsightsTimeframe.MONTH -> monthlyPoints
     }
+    val anomalyPoint = activePoints.firstOrNull { it.isAnomaly } ?: weeklyPoints.firstOrNull { it.isAnomaly }
     var selectedApp by remember { mutableStateOf<AppActivityInsight?>(null) }
 
     LazyColumn(
@@ -100,55 +104,93 @@ fun InsightsScreen(
             )
         }
 
-        // Anomaly — Thursday Banner Card (Screenshot 4)
+        // Top Banner: Anomaly if detected, OR "Building Baseline — Keep Using" on fresh install
         item {
-            ForensicsCard(
-                containerColor = ForensicsPalette.AmberContainer,
-                onClick = onInvestigateAnomaly,
-                modifier = Modifier.testTag("investigate_anomaly_button")
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalAlignment = Alignment.Top
+            if (anomalyPoint != null) {
+                val avgDrain = weeklyPoints.map { it.drainPercent }.average().roundToInt()
+                ForensicsCard(
+                    containerColor = ForensicsPalette.AmberContainer,
+                    onClick = onInvestigateAnomaly,
+                    modifier = Modifier.testTag("investigate_anomaly_button")
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(ForensicsPalette.AmberIconBox)
-                            .border(1.dp, ForensicsPalette.AmberDarkText, RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.WarningAmber,
-                            contentDescription = "Anomaly warning",
-                            tint = ForensicsPalette.AmberPill,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ForensicsPalette.AmberIconBox)
+                                .border(1.dp, ForensicsPalette.AmberDarkText, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.WarningAmber,
+                                contentDescription = "Anomaly warning",
+                                tint = ForensicsPalette.AmberPill,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Anomaly — ${anomalyPoint.dayFull}",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.AmberDarkText
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${anomalyPoint.drainPercent}% drain vs your recorded average of ${avgDrain}%.",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.AmberPrimary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Investigate →",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.AmberDarkText
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                }
+            } else {
+                ForensicsCard(
+                    containerColor = ForensicsPalette.BlueSoftTile,
+                    onClick = onInvestigateAnomaly,
+                    modifier = Modifier.testTag("investigate_anomaly_button")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Building Your Battery Baseline",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.BluePrimary
+                            )
+                            ClassificationBadge(
+                                text = "Data collection in progress",
+                                containerColor = ForensicsPalette.BlueContainer,
+                                contentColor = ForensicsPalette.BluePrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Anomaly — Thursday",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.AmberDarkText
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "47% drain vs your 7-day average of 23%. Instagram showed elevated background activity.",
+                            text = "Keep using your phone normally — daily and weekly drain trends, overnight comparisons, and anomaly alerts will generate soon as battery data is recorded.",
                             fontSize = 13.sp,
-                            color = ForensicsPalette.AmberPrimary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Investigate →",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.AmberDarkText,
-                            modifier = Modifier.testTag("investigate_anomaly_button")
+                            color = ForensicsPalette.TextPrimary
                         )
                     }
                 }
@@ -176,17 +218,25 @@ fun InsightsScreen(
             )
         }
 
-        // Battery Drain — 7 Days Line Chart Card
+        // Native Ad Card (Above the Fold — Top of Insights Tab)
+        item {
+            InlineForensicsAdBannerCard(
+                placementLabel = "Battery Analytics",
+                tagName = "insights_inline_ad_card"
+            )
+        }
+
+        // Battery Drain Line Chart Card
         item {
             val chartSubtitle = when (timeframe) {
-                InsightsTimeframe.DAY -> "Battery Drain — Today (4h blocks)"
+                InsightsTimeframe.DAY -> "Battery Drain — Today"
                 InsightsTimeframe.WEEK -> "Battery Drain — 7 Days"
                 InsightsTimeframe.MONTH -> "Battery Drain — 4 Weeks"
             }
-            val avgHeadline = when (timeframe) {
-                InsightsTimeframe.DAY -> "21% today"
-                InsightsTimeframe.WEEK -> "23% avg"
-                InsightsTimeframe.MONTH -> "22.8% avg"
+            val avgHeadline = if (activePoints.isNotEmpty()) {
+                "${activePoints.map { it.drainPercent }.average().roundToInt()}% avg"
+            } else {
+                "Collecting data..."
             }
 
             ForensicsCard {
@@ -210,7 +260,7 @@ fun InsightsScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = avgHeadline,
-                                fontSize = 24.sp,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ForensicsPalette.TextPrimary
                             )
@@ -221,21 +271,52 @@ fun InsightsScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    DrainTrendLineChart(points = activePoints)
+                    if (activePoints.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(ForensicsPalette.SubtleSurface)
+                                .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(14.dp))
+                                .padding(20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Not enough history yet. Keep using your device and the drain trend curve will generate automatically.",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        DrainTrendLineChart(points = activePoints)
+                    }
                 }
             }
         }
 
         // 3 Colored Metric Cards: AVG DRAIN | SCREEN AVG | IDLE DRAIN
         item {
+            val avgDrainStr = if (activePoints.isNotEmpty()) {
+                "${activePoints.map { it.drainPercent }.average().roundToInt()}%"
+            } else "—"
+            val screenAvgStr = if (activePoints.isNotEmpty()) {
+                val hrs = activePoints.map { it.screenHours.toDouble() }.average()
+                String.format(Locale.US, "%.1fh", hrs)
+            } else "—"
+            val idleAvgStr = if (activePoints.isNotEmpty()) {
+                val idle = activePoints.map { it.idleDrainRate.toDouble() }.average()
+                String.format(Locale.US, "%.1f%%", idle)
+            } else "—"
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 InsightMetricBox(
                     label = "AVG DRAIN",
-                    value = "23%",
-                    sub = "per day",
+                    value = avgDrainStr,
+                    sub = if (activePoints.isNotEmpty()) "per session" else "generating",
                     bgColor = ForensicsPalette.BlueContainer,
                     borderColor = ForensicsPalette.BlueBorder,
                     textColor = ForensicsPalette.BluePrimary,
@@ -243,8 +324,8 @@ fun InsightsScreen(
                 )
                 InsightMetricBox(
                     label = "SCREEN AVG",
-                    value = "6h 12m",
-                    sub = "per day",
+                    value = screenAvgStr,
+                    sub = if (activePoints.isNotEmpty()) "per day" else "generating",
                     bgColor = ForensicsPalette.PurpleContainer,
                     borderColor = ForensicsPalette.PurpleBorder,
                     textColor = ForensicsPalette.PurplePrimary,
@@ -252,8 +333,8 @@ fun InsightsScreen(
                 )
                 InsightMetricBox(
                     label = "IDLE DRAIN",
-                    value = "0.8%",
-                    sub = "per hour",
+                    value = idleAvgStr,
+                    sub = if (activePoints.isNotEmpty()) "per hour" else "generating",
                     bgColor = ForensicsPalette.GreenContainer,
                     borderColor = ForensicsPalette.GreenBorder,
                     textColor = ForensicsPalette.GreenPrimary,
@@ -262,7 +343,7 @@ fun InsightsScreen(
             }
         }
 
-        // BASELINE COMPARISON Card (Screenshot 4)
+        // BASELINE COMPARISON Card
         item {
             ForensicsCard {
                 Column(
@@ -280,78 +361,105 @@ fun InsightsScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(14.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        val boxShape = RoundedCornerShape(16.dp)
-                        Column(
+                    if (weeklyPoints.size < 2) {
+                        Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .clip(boxShape)
-                                .background(ForensicsPalette.GreenSoftTile)
-                                .border(1.dp, ForensicsPalette.GreenBorder, boxShape)
-                                .padding(vertical = 18.dp, horizontal = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ForensicsPalette.SubtleSurface)
+                                .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                                .padding(16.dp)
                         ) {
                             Text(
-                                text = "NORMAL OVERNIGHT",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp,
-                                color = ForensicsPalette.GreenPrimary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "4–6%",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.GreenPrimary
+                                text = "Baseline comparison requires at least 2 recorded overnight or idle sessions. Keep using your device — comparison data will generate soon.",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                textAlign = TextAlign.Center
                             )
                         }
+                    } else {
+                        val latest = weeklyPoints.last()
+                        val priorPoints = weeklyPoints.dropLast(1).ifEmpty { weeklyPoints }
+                        val minBaseline = priorPoints.minOf { it.drainPercent }
+                        val maxBaseline = priorPoints.maxOf { it.drainPercent }
+                        val baselineLabel = if (minBaseline == maxBaseline) {
+                            "${minBaseline}%"
+                        } else {
+                            "${minBaseline}–${maxBaseline}%"
+                        }
+                        val boxShape = RoundedCornerShape(16.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(boxShape)
+                                    .background(ForensicsPalette.GreenSoftTile)
+                                    .border(1.dp, ForensicsPalette.GreenBorder, boxShape)
+                                    .padding(vertical = 18.dp, horizontal = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "RECORDED BASELINE",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp,
+                                    color = ForensicsPalette.GreenPrimary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = baselineLabel,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.GreenPrimary
+                                )
+                            }
+                            Text(
+                                text = "VS",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.TextSecondary
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(boxShape)
+                                    .background(ForensicsPalette.AmberContainer)
+                                    .border(1.dp, ForensicsPalette.AmberBorder, boxShape)
+                                    .padding(vertical = 18.dp, horizontal = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = latest.dayFull.uppercase(Locale.getDefault()),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp,
+                                    color = ForensicsPalette.AmberPrimary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "${latest.drainPercent}%",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (latest.isAnomaly) ForensicsPalette.RedPrimary else ForensicsPalette.TextPrimary
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "VS",
+                            text = "Based on ${weeklyPoints.size} recorded sessions",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
                             color = ForensicsPalette.TextSecondary
                         )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(boxShape)
-                                .background(ForensicsPalette.AmberContainer)
-                                .border(1.dp, ForensicsPalette.AmberBorder, boxShape)
-                                .padding(vertical = 18.dp, horizontal = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "THURSDAY NIGHT",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp,
-                                color = ForensicsPalette.AmberPrimary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "14%",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.RedPrimary
-                            )
-                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "2.3× above normal · Based on 14 recorded nights",
-                        fontSize = 12.sp,
-                        color = ForensicsPalette.TextSecondary
-                    )
                 }
             }
         }
 
-        // APP ACTIVITY Card (Screenshot 4)
+        // APP ACTIVITY Card
         item {
             ForensicsCard {
                 Column(
@@ -378,90 +486,106 @@ fun InsightsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(14.dp))
-                    appInsights.forEachIndexed { index, app ->
-                        val (avatarBg, avatarBorder, avatarText) = when (app.initial) {
-                            "I" -> Triple(ForensicsPalette.PurpleSoftTile, ForensicsPalette.PurpleBorder, ForensicsPalette.PurplePrimary)
-                            "C" -> Triple(ForensicsPalette.BlueSoftTile, ForensicsPalette.BlueBorder, ForensicsPalette.BluePrimary)
-                            "Y" -> Triple(ForensicsPalette.RedContainer, ForensicsPalette.RedBorder, ForensicsPalette.RedPrimary)
-                            "M" -> Triple(ForensicsPalette.AmberSoftTile, ForensicsPalette.AmberBorder, ForensicsPalette.AmberPrimary)
-                            "S" -> Triple(ForensicsPalette.GreenSoftTile, ForensicsPalette.GreenBorder, ForensicsPalette.GreenPrimary)
-                            else -> Triple(ForensicsPalette.SubtleSurfaceAlt, ForensicsPalette.BorderStrong, ForensicsPalette.TextSecondary)
-                        }
-                        val (impactBg, impactColor) = when (app.impactLevel) {
-                            "High" -> ForensicsPalette.AmberSoftTile to ForensicsPalette.AmberPrimary
-                            "Med" -> ForensicsPalette.BlueSoftTile to ForensicsPalette.BluePrimary
-                            else -> ForensicsPalette.GreenSoftTile to ForensicsPalette.GreenPrimary
-                        }
-
-                        Row(
+                    if (appInsights.isEmpty()) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable { selectedApp = app }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .background(ForensicsPalette.SubtleSurface)
+                                .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                                .padding(16.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                val avatarShape = RoundedCornerShape(10.dp)
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(avatarShape)
-                                        .background(avatarBg)
-                                        .border(1.dp, avatarBorder, avatarShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = app.initial,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = avatarText
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = app.appName,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = ForensicsPalette.TextPrimary
-                                        )
-                                        if (app.hasLocationBadge) {
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            ClassificationBadge(
-                                                text = "Location",
-                                                containerColor = ForensicsPalette.AmberSoftTile,
-                                                contentColor = ForensicsPalette.AmberPrimary
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${app.foregroundDurationLabel} · ${app.backgroundEventsCount} bg events",
-                                        fontSize = 12.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = ForensicsPalette.TextSecondary
-                                    )
-                                }
-                            }
-                            ClassificationBadge(
-                                text = app.impactLevel,
-                                containerColor = impactBg,
-                                contentColor = impactColor
+                            Text(
+                                text = "Keep using your phone — real app foreground time and background event counts will generate soon (ensure Usage Access is enabled in Settings → Permissions).",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextSecondary
                             )
                         }
-                        if (index < appInsights.lastIndex) {
-                            HorizontalDivider(color = ForensicsPalette.DividerColor, thickness = 0.8.dp)
+                    } else {
+                        appInsights.forEachIndexed { index, app ->
+                            val (avatarBg, avatarBorder, avatarText) = when (index % 5) {
+                                0 -> Triple(ForensicsPalette.PurpleSoftTile, ForensicsPalette.PurpleBorder, ForensicsPalette.PurplePrimary)
+                                1 -> Triple(ForensicsPalette.BlueSoftTile, ForensicsPalette.BlueBorder, ForensicsPalette.BluePrimary)
+                                2 -> Triple(ForensicsPalette.RedContainer, ForensicsPalette.RedBorder, ForensicsPalette.RedPrimary)
+                                3 -> Triple(ForensicsPalette.AmberSoftTile, ForensicsPalette.AmberBorder, ForensicsPalette.AmberPrimary)
+                                else -> Triple(ForensicsPalette.GreenSoftTile, ForensicsPalette.GreenBorder, ForensicsPalette.GreenPrimary)
+                            }
+                            val (impactBg, impactColor) = when (app.impactLevel) {
+                                "High" -> ForensicsPalette.AmberSoftTile to ForensicsPalette.AmberPrimary
+                                "Med" -> ForensicsPalette.BlueSoftTile to ForensicsPalette.BluePrimary
+                                else -> ForensicsPalette.GreenSoftTile to ForensicsPalette.GreenPrimary
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { selectedApp = app }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    val avatarShape = RoundedCornerShape(10.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(avatarShape)
+                                            .background(avatarBg)
+                                            .border(1.dp, avatarBorder, avatarShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = app.initial,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = avatarText
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = app.appName,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = ForensicsPalette.TextPrimary
+                                            )
+                                            if (app.hasLocationBadge) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                ClassificationBadge(
+                                                    text = "Location",
+                                                    containerColor = ForensicsPalette.AmberSoftTile,
+                                                    contentColor = ForensicsPalette.AmberPrimary
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${app.foregroundDurationLabel} · ${app.backgroundEventsCount} events",
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = ForensicsPalette.TextSecondary
+                                        )
+                                    }
+                                }
+                                ClassificationBadge(
+                                    text = app.impactLevel,
+                                    containerColor = impactBg,
+                                    contentColor = impactColor
+                                )
+                            }
+                            if (index < appInsights.lastIndex) {
+                                HorizontalDivider(color = ForensicsPalette.DividerColor, thickness = 0.8.dp)
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Battery attribution unavailable · bg = background events counted",
+                        text = "Battery attribution unavailable · Measured via Android UsageStatsManager",
                         fontSize = 11.sp,
                         color = ForensicsPalette.TextMuted
                     )
@@ -469,7 +593,7 @@ fun InsightsScreen(
             }
         }
 
-        // TEMPERATURE TREND Card (Screenshot 4)
+        // TEMPERATURE TREND Card
         item {
             ForensicsCard {
                 Column(
@@ -498,14 +622,35 @@ fun InsightsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    TemperatureBarChart(points = weeklyPoints)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Thu peak 33.6°C — above normal charging temperature range",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ForensicsPalette.RedPrimary
-                    )
+                    if (weeklyPoints.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ForensicsPalette.SubtleSurface)
+                                .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Keep using your device — daily peak temperature trends will generate automatically as thermal readings are logged.",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        TemperatureBarChart(points = weeklyPoints)
+                        val peakPt = weeklyPoints.maxByOrNull { it.peakTempCelsius }
+                        if (peakPt != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Peak observed: ${peakPt.peakTempCelsius}°C (${peakPt.dayFull})",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (peakPt.peakTempCelsius >= 35f) ForensicsPalette.RedPrimary else ForensicsPalette.TextSecondary
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
@@ -526,8 +671,7 @@ fun InsightsScreen(
                     )
                     Text(
                         text = "• Foreground / Screen-on Duration: ${app.foregroundDurationLabel}\n" +
-                            "• Background Activity Events: ${app.backgroundEventsCount} events\n" +
-                            "• Location Access Indicator: ${if (app.hasLocationBadge) "Elevated (Passive + Foreground)" else "None observed"}\n" +
+                            "• Usage / Activity Events: ${app.backgroundEventsCount} events\n" +
                             "• Activity Impact Classification: ${app.impactLevel}",
                         fontSize = 13.sp,
                         color = ForensicsPalette.TextPrimary
@@ -595,7 +739,6 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                 val stepX = if (points.size > 1) size.width / (points.size - 1) else size.width
                 val dashEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
 
-                // Horizontal reference grid lines (top, mid, bottom)
                 listOf(0.10f, 0.52f, 0.94f).forEach { frac ->
                     val gy = chartHeight * frac
                     drawLine(
@@ -614,7 +757,6 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                     Offset(x, y)
                 }
 
-                // Draw anomaly highlight column under any anomaly point (e.g. Thu)
                 points.forEachIndexed { idx, pt ->
                     if (pt.isAnomaly) {
                         val center = coordinates[idx]
@@ -642,7 +784,6 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                     }
                 }
 
-                // Area path under curve
                 val areaPath = Path().apply {
                     moveTo(coordinates.first().x, chartHeight)
                     coordinates.forEach { lineTo(it.x, it.y) }
@@ -659,7 +800,6 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                     )
                 )
 
-                // Line path
                 val linePath = Path().apply {
                     coordinates.forEachIndexed { idx, offset ->
                         if (idx == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
@@ -671,7 +811,6 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
-                // Data points with crisp white halos
                 coordinates.forEachIndexed { idx, center ->
                     val isAnom = points[idx].isAnomaly
                     val radius = if (isAnom) 6.5.dp.toPx() else 4.5.dp.toPx()
@@ -774,7 +913,6 @@ private fun TemperatureBarChart(points: List<DayDrainPoint>) {
     ) {
         points.forEach { pt ->
             val isPeak = pt.isAnomaly || pt.peakTempCelsius >= 33.0f
-            // Normalize temperature height between 26°C and 35°C so bars have clear visual proportion
             val normFraction = ((pt.peakTempCelsius - 26.5f) / 8.0f).coerceIn(0.24f, 1.0f)
             val barColor = if (isPeak) ForensicsPalette.RedBar else ForensicsPalette.BlueBarLight
             val barBorder = if (isPeak) ForensicsPalette.RedPrimary else ForensicsPalette.BlueBorder
@@ -800,7 +938,6 @@ private fun TemperatureBarChart(points: List<DayDrainPoint>) {
                         .weight(1f),
                     contentAlignment = Alignment.BottomCenter
                 ) {
-                    // Full-height subtle track behind bar
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -808,7 +945,6 @@ private fun TemperatureBarChart(points: List<DayDrainPoint>) {
                             .background(ForensicsPalette.CardSurface)
                             .border(0.8.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(8.dp))
                     )
-                    // Actual temperature fill bar
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

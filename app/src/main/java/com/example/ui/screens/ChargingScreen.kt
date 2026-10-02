@@ -66,6 +66,8 @@ fun ChargingScreen(
     chargingSessions: List<ChargingSessionEntity>,
     chargerProfiles: List<ChargerProfileEntity>,
     onAddChargerProfile: (String, Float, Float, Float) -> Unit,
+    isDeepBenchmarkUnlocked: Boolean = false,
+    onTriggerVideoAd2: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddChargerDialog by remember { mutableStateOf(false) }
@@ -97,6 +99,28 @@ fun ChargingScreen(
 
         // Top Charging Status Card (Screenshots 5, 6, 7)
         item {
+            val latestSession = chargingSessions.firstOrNull()
+            val lastTimeText = when {
+                snapshot.isCharging -> "Live session active"
+                latestSession != null -> "Last: ${latestSession.dateTimeLabel}"
+                else -> "No session recorded yet"
+            }
+            val avgPowerText = when {
+                snapshot.liveChargingWatts != null -> String.format(java.util.Locale.US, "%.1fW", snapshot.liveChargingWatts)
+                latestSession != null -> "${latestSession.avgPowerWatts}W"
+                else -> "—"
+            }
+            val peakTempText = when {
+                latestSession != null -> "${latestSession.peakTempCelsius}°C"
+                snapshot.temperatureCelsius > 0f -> "${snapshot.temperatureCelsius}°C"
+                else -> "—"
+            }
+            val lastDurText = when {
+                snapshot.isCharging -> "Charging"
+                latestSession != null -> latestSession.durationLabel
+                else -> "—"
+            }
+
             ForensicsCard {
                 Column(
                     modifier = Modifier
@@ -125,7 +149,7 @@ fun ChargingScreen(
                             )
                         }
                         Text(
-                            text = "Last: Today 8:14 AM",
+                            text = lastTimeText,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,
@@ -143,8 +167,8 @@ fun ChargingScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ChargingTopStatColumn(
-                            label = "Last avg power",
-                            value = "18W",
+                            label = if (snapshot.isCharging) "Live power" else "Last avg power",
+                            value = avgPowerText,
                             modifier = Modifier.weight(1f)
                         )
                         VerticalDivider(
@@ -153,8 +177,8 @@ fun ChargingScreen(
                             modifier = Modifier.fillMaxHeight()
                         )
                         ChargingTopStatColumn(
-                            label = "Peak temp",
-                            value = "31.2°C",
+                            label = if (latestSession != null) "Peak temp" else "Live temp",
+                            value = peakTempText,
                             modifier = Modifier.weight(1f)
                         )
                         VerticalDivider(
@@ -164,7 +188,7 @@ fun ChargingScreen(
                         )
                         ChargingTopStatColumn(
                             label = "Last duration",
-                            value = "1h 42m",
+                            value = lastDurText,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -195,48 +219,87 @@ fun ChargingScreen(
 
         when (subTab) {
             ChargingSubTab.HISTORY -> {
-                // Latest · Today 8:14 AM Charging Curve Card (Screenshot 5)
-                item {
-                    ForensicsCard {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                if (chargingSessions.isEmpty()) {
+                    item {
+                        ForensicsCard(containerColor = ForensicsPalette.GreenSoftTile) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp)
                             ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Data collection in progress",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ForensicsPalette.GreenPrimary
+                                    )
+                                    ClassificationBadge(
+                                        text = "Collecting History",
+                                        containerColor = ForensicsPalette.GreenContainer,
+                                        contentColor = ForensicsPalette.GreenPrimary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Latest · Today 8:14 AM",
+                                    text = "Keep using your device and plug in your charger — charging curves, wattage profiles, and session history will generate automatically as charging sessions are recorded.",
                                     fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = ForensicsPalette.TextSecondary
-                                )
-                                ClassificationBadge(
-                                    text = "Estimated",
-                                    containerColor = ForensicsPalette.GreenContainer,
-                                    contentColor = ForensicsPalette.GreenPrimary
+                                    color = ForensicsPalette.TextPrimary
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "18.4W average",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.GreenPrimary
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            ChargingCurveChart()
                         }
                     }
-                }
+                } else {
+                    val latest = chargingSessions.first()
+                    item {
+                        ForensicsCard {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(18.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Latest · ${latest.dateTimeLabel}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = ForensicsPalette.TextSecondary
+                                    )
+                                    ClassificationBadge(
+                                        text = "Estimated",
+                                        containerColor = ForensicsPalette.GreenContainer,
+                                        contentColor = ForensicsPalette.GreenPrimary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (latest.avgPowerWatts > 0f) {
+                                        "${latest.avgPowerWatts}W average (${latest.startPercent}% → ${latest.endPercent}%)"
+                                    } else {
+                                        "${latest.startPercent}% → ${latest.endPercent}% (${latest.durationLabel})"
+                                    },
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.GreenPrimary
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                ChargingCurveChart(session = latest)
+                            }
+                        }
+                    }
 
-                // Session History Cards (Screenshot 5)
-                items(chargingSessions.size) { index ->
-                    val session = chargingSessions[index]
-                    ChargingSessionCard(session = session)
+                    items(chargingSessions.size) { index ->
+                        val session = chargingSessions[index]
+                        ChargingSessionCard(session = session)
+                    }
                 }
 
                 item { Spacer(modifier = Modifier.height(20.dp)) }
@@ -250,18 +313,22 @@ fun ChargingScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val chipShape = RoundedCornerShape(8.dp)
-                        Text(
-                            text = "Compare Chargers ⇄",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.BluePrimary,
-                            modifier = Modifier
-                                .clip(chipShape)
-                                .background(ForensicsPalette.BlueSoftTile)
-                                .border(1.dp, ForensicsPalette.BlueBorder, chipShape)
-                                .clickable { showCompareChargersDialog = true }
-                                .padding(horizontal = 12.dp, vertical = 7.dp)
-                        )
+                        if (chargerProfiles.size >= 2) {
+                            Text(
+                                text = "Compare Chargers ⇄",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.BluePrimary,
+                                modifier = Modifier
+                                    .clip(chipShape)
+                                    .background(ForensicsPalette.BlueSoftTile)
+                                    .border(1.dp, ForensicsPalette.BlueBorder, chipShape)
+                                    .clickable { showCompareChargersDialog = true }
+                                    .padding(horizontal = 12.dp, vertical = 7.dp)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
                         Text(
                             text = "+ New Charger Profile",
                             fontSize = 12.sp,
@@ -278,54 +345,179 @@ fun ChargingScreen(
                     }
                 }
 
-                // Charger Profile Cards (Screenshot 6)
-                items(chargerProfiles.size) { idx ->
-                    ChargerProfileCard(profile = chargerProfiles[idx])
+                if (chargerProfiles.isEmpty()) {
+                    item {
+                        ForensicsCard {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp)
+                            ) {
+                                Text(
+                                    text = "No Charger Profiles Recorded Yet",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Keep using your phone and charge with your adapter to build charger fingerprints, or tap '+ New Charger Profile' above to save a charger.",
+                                    fontSize = 13.sp,
+                                    color = ForensicsPalette.TextSecondary
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(chargerProfiles.size) { idx ->
+                        ChargerProfileCard(profile = chargerProfiles[idx])
+                    }
                 }
 
                 item { Spacer(modifier = Modifier.height(20.dp)) }
             }
 
             ChargingSubTab.HEALTH -> {
-                // 4 Charging Health Cards with left colored vertical bar (Screenshot 7)
+                val hasSessions = chargingSessions.isNotEmpty()
+                // Deep Health & Thermal Stress Benchmark (Unlocked via Video Ad #2)
+                item {
+                    ForensicsCard(
+                        containerColor = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenSoftTile else ForensicsPalette.PurpleContainer
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ClassificationBadge(
+                                    text = if (isDeepBenchmarkUnlocked) "UNLOCKED" else "DEEP BENCHMARK",
+                                    containerColor = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenContainer else ForensicsPalette.PurpleSoftTile,
+                                    contentColor = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenPrimary else ForensicsPalette.PurplePrimary
+                                )
+                                Text(
+                                    text = if (isDeepBenchmarkUnlocked) "Active" else "Session Locked",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenPrimary else ForensicsPalette.PurplePrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Deep C-Rate, Voltage Sag & Thermal Benchmark",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (!isDeepBenchmarkUnlocked) {
+                                Text(
+                                    text = "Unlock live C-rate charge stress, terminal voltage sag, and thermal throttle headroom metrics for this session.",
+                                    fontSize = 12.sp,
+                                    color = ForensicsPalette.TextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = onTriggerVideoAd2,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("video_ad_2_charging_button")
+                                ) {
+                                    Text(
+                                        text = "Unlock Benchmark",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            } else {
+                                val cRate = if (snapshot.designCapacityMah > 0) {
+                                    kotlin.math.abs(snapshot.currentMilliAmps).toFloat() / snapshot.designCapacityMah.toFloat()
+                                } else 0f
+                                Text(
+                                    text = String.format(
+                                        java.util.Locale.US,
+                                        "• Live C-Rate Stress: %.2fC (%d mA / %d mAh design)\n• Live Terminal Voltage: %.3f V (%s)\n• Thermal Headroom: %.1f°C below 40.0°C throttle threshold",
+                                        cRate,
+                                        snapshot.currentMilliAmps,
+                                        snapshot.designCapacityMah,
+                                        snapshot.voltageVolts,
+                                        snapshot.currentStatus,
+                                        (40.0f - snapshot.temperatureCelsius).coerceAtLeast(0f)
+                                    ),
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = ForensicsPalette.TextPrimary,
+                                    modifier = Modifier.testTag("unlocked_deep_benchmark_box")
+                                )
+                            }
+                        }
+                    }
+                }
                 item {
                     ChargingHealthItemCard(
                         accentColor = ForensicsPalette.GreenPrimary,
                         title = "Charging Speed",
-                        badgeText = "Normal",
+                        badgeText = if (hasSessions || snapshot.isCharging) "Measured" else "Collecting",
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
-                        description = "Avg 19.2W with Pixel 30W · Consistent with fast-charge profile."
+                        description = when {
+                            snapshot.liveChargingWatts != null -> String.format(java.util.Locale.US, "Live charging at %.1fW (%s).", snapshot.liveChargingWatts, snapshot.chargingSource)
+                            hasSessions -> "Avg ${chargingSessions.first().avgPowerWatts}W in latest recorded session."
+                            else -> "Plug in your device to measure charging wattage and speed stability."
+                        }
                     )
                 }
                 item {
+                    val tempHigh = snapshot.temperatureCelsius >= 36.0f
                     ChargingHealthItemCard(
-                        accentColor = ForensicsPalette.RedPrimary,
+                        accentColor = if (tempHigh) ForensicsPalette.RedPrimary else ForensicsPalette.GreenPrimary,
                         title = "Temperature",
-                        badgeText = "Elevated on Mon",
-                        badgeBg = ForensicsPalette.RedContainer,
-                        badgeTextColor = ForensicsPalette.RedPrimary,
-                        description = "32.1°C peak with unknown charger — within safe range but above 30.2°C average."
+                        badgeText = snapshot.temperatureStatus,
+                        badgeBg = if (tempHigh) ForensicsPalette.RedContainer else ForensicsPalette.GreenContainer,
+                        badgeTextColor = if (tempHigh) ForensicsPalette.RedPrimary else ForensicsPalette.GreenPrimary,
+                        description = "Current thermistor reading: ${snapshot.temperatureCelsius}°C (${snapshot.thermalStatusLabel})."
                     )
                 }
                 item {
                     ChargingHealthItemCard(
                         accentColor = ForensicsPalette.GreenPrimary,
                         title = "Interruptions",
-                        badgeText = "None detected",
+                        badgeText = if (hasSessions) "None detected" else "Monitoring",
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
-                        description = "No unexpected interruptions in the last 28 sessions."
+                        description = if (hasSessions) {
+                            "No unexpected interruptions across ${chargingSessions.size} recorded sessions."
+                        } else {
+                            "Keep using your device — charging interruption checks will generate during your next charge."
+                        }
                     )
                 }
                 item {
+                    val hasTaperCrossing = chargingSessions.any { it.startPercent < 80 && it.endPercent >= 80 }
                     ChargingHealthItemCard(
                         accentColor = ForensicsPalette.GreenPrimary,
                         title = "Curve Shape",
-                        badgeText = "Normal",
+                        badgeText = when {
+                            hasTaperCrossing -> "Measured"
+                            hasSessions -> "Partial Cycle"
+                            else -> "Calibrating"
+                        },
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
-                        description = "Expected 80% taper observed consistently. No unexpected shape changes."
+                        description = when {
+                            hasTaperCrossing -> {
+                                val s = chargingSessions.first { it.startPercent < 80 && it.endPercent >= 80 }
+                                "Measured charge progression (${s.startPercent}% → ${s.endPercent}% in ${s.durationLabel}) across the 80% CC/CV threshold."
+                            }
+                            hasSessions -> {
+                                val s = chargingSessions.first()
+                                "Latest recorded charge (${s.startPercent}% → ${s.endPercent}%) did not cross the 80%–100% CV taper window."
+                            }
+                            else -> "Requires a charging session crossing 80% → 100% to evaluate constant-current / constant-voltage taper."
+                        }
                     )
                 }
                 item {
@@ -344,10 +536,18 @@ fun ChargingScreen(
     }
 
     if (showAddChargerDialog) {
-        var name by remember { mutableStateOf("Car USB-C PD 25W") }
-        var maxW by remember { mutableStateOf("21.5") }
-        var avgW by remember { mutableStateOf("17.8") }
-        var temp by remember { mutableStateOf("30.6") }
+        val liveWattsStr = snapshot.liveChargingWatts?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: ""
+        val liveTempStr = if (snapshot.temperatureCelsius > 0f) {
+            String.format(java.util.Locale.US, "%.1f", snapshot.temperatureCelsius)
+        } else ""
+        var name by remember {
+            mutableStateOf(
+                if (snapshot.isCharging) snapshot.chargingSource else ""
+            )
+        }
+        var maxW by remember { mutableStateOf(liveWattsStr) }
+        var avgW by remember { mutableStateOf(liveWattsStr) }
+        var temp by remember { mutableStateOf(liveTempStr) }
 
         AlertDialog(
             onDismissRequest = { showAddChargerDialog = false },
@@ -382,11 +582,14 @@ fun ChargingScreen(
             },
             confirmButton = {
                 Button(onClick = {
+                    val parsedMax = maxW.toFloatOrNull() ?: (snapshot.liveChargingWatts ?: 0f)
+                    val parsedAvg = avgW.toFloatOrNull() ?: parsedMax
+                    val parsedTemp = temp.toFloatOrNull() ?: snapshot.temperatureCelsius
                     onAddChargerProfile(
-                        name.ifBlank { "Custom Charger" },
-                        maxW.toFloatOrNull() ?: 18.0f,
-                        avgW.toFloatOrNull() ?: 15.0f,
-                        temp.toFloatOrNull() ?: 30.0f
+                        name.ifBlank { "Charger (${snapshot.chargingSource})" },
+                        parsedMax,
+                        parsedAvg,
+                        parsedTemp
                     )
                     showAddChargerDialog = false
                 }) {
@@ -461,7 +664,20 @@ private fun ChargingTopStatColumn(
 }
 
 @Composable
-private fun ChargingCurveChart() {
+private fun ChargingCurveChart(session: ChargingSessionEntity) {
+    val startPct = session.startPercent.coerceIn(0, 100)
+    val endPct = session.endPercent.coerceIn(startPct, 100)
+    val crossedTaper = startPct < 80 && endPct > 80
+    val taperFractionX = if (crossedTaper && endPct > startPct) {
+        ((80f - startPct) / (endPct - startPct).toFloat()).coerceIn(0.1f, 0.9f)
+    } else null
+
+    // Parse real minutes from session.durationLabel (e.g., "1h 20m" or "15m")
+    val hrs = Regex("(\\d+)h").find(session.durationLabel)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+    val mins = Regex("(\\d+)m").find(session.durationLabel)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+    val totalMins = ((hrs * 60) + mins).coerceAtLeast(1)
+    val xLabels = (0..4).map { step -> "${(totalMins * step) / 4}m" }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
@@ -488,14 +704,16 @@ private fun ChargingCurveChart() {
                     )
                 }
 
-                // Curve points from 25% at 0m -> 52% at 20m -> 72% at 40m -> 88% at 64m -> 100% at 80m
-                val pts = listOf(
-                    Offset(0f, h * 0.72f),
-                    Offset(w * 0.25f, h * 0.45f),
-                    Offset(w * 0.52f, h * 0.28f),
-                    Offset(w * 0.76f, h * 0.14f),
-                    Offset(w, h * 0.05f)
-                )
+                fun pctToY(pct: Float): Float {
+                    val normalized = (pct / 100f).coerceIn(0f, 1f)
+                    return h * (0.94f - normalized * 0.88f)
+                }
+
+                val pts = (0..4).map { idx ->
+                    val frac = idx / 4f
+                    val pctAtStep = startPct + (endPct - startPct) * frac
+                    Offset(w * frac, pctToY(pctAtStep))
+                }
 
                 val area = Path().apply {
                     moveTo(pts.first().x, h)
@@ -524,23 +742,22 @@ private fun ChargingCurveChart() {
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
-                // Dashed vertical 80% taper marker
-                val taperX = w * 0.76f
-                drawLine(
-                    color = ForensicsPalette.AmberPrimary,
-                    start = Offset(taperX, h * 0.05f),
-                    end = Offset(taperX, h),
-                    strokeWidth = 1.8.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 7f), 0f)
-                )
+                if (taperFractionX != null) {
+                    val taperX = w * taperFractionX
+                    drawLine(
+                        color = ForensicsPalette.AmberPrimary,
+                        start = Offset(taperX, pctToY(80f)),
+                        end = Offset(taperX, h),
+                        strokeWidth = 1.8.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 7f), 0f)
+                    )
+                }
 
-                // Milestone dots along curve
-                pts.forEachIndexed { idx, pt ->
-                    val isTaper = idx == 3
-                    val r = if (isTaper) 5.5.dp.toPx() else 3.8.dp.toPx()
+                pts.forEach { pt ->
+                    val r = 3.8.dp.toPx()
                     drawCircle(color = Color.White, radius = r + 2.dp.toPx(), center = pt)
                     drawCircle(
-                        color = if (isTaper) ForensicsPalette.AmberPrimary else ForensicsPalette.GreenGauge,
+                        color = ForensicsPalette.GreenGauge,
                         radius = r,
                         center = pt
                     )
@@ -559,22 +776,23 @@ private fun ChargingCurveChart() {
                 Text("0%", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = ForensicsPalette.TextSecondary)
             }
 
-            // 80% Taper badge near dashed line
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 34.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(ForensicsPalette.AmberPill)
-                    .border(1.dp, ForensicsPalette.AmberBorder, RoundedCornerShape(6.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = "80% taper",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ForensicsPalette.AmberPrimary
-                )
+            if (taperFractionX != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 6.dp, end = 34.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(ForensicsPalette.AmberPill)
+                        .border(1.dp, ForensicsPalette.AmberBorder, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "80% threshold",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ForensicsPalette.AmberPrimary
+                    )
+                }
             }
         }
 
@@ -585,7 +803,7 @@ private fun ChargingCurveChart() {
                 .padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            listOf("0m", "20m", "40m", "60m", "80m").forEach { label ->
+            xLabels.forEach { label ->
                 Text(
                     text = label,
                     fontSize = 10.sp,

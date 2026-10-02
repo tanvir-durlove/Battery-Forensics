@@ -49,16 +49,25 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.example.R
+import com.example.data.RewardedAdManager
 import com.example.ui.MainTab
 import com.example.ui.theme.ForensicsPalette
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
 
 @Composable
 fun ForensicsTopAppBar(
     currentTab: MainTab,
     batteryPercent: Int,
+    isAiDoctorUnlocked: Boolean = false,
     onOpenAiDoctor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -100,15 +109,15 @@ fun ForensicsTopAppBar(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(badgeBg)
-                            .border(1.dp, badgeBorder, RoundedCornerShape(11.dp)),
+                            .background(Color(0xFF12161B))
+                            .border(1.dp, Color(0xFF2A3441), RoundedCornerShape(11.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = badgeIcon,
-                            contentDescription = currentTab.label,
-                            tint = badgeTint,
-                            modifier = Modifier.size(20.dp)
+                            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                            contentDescription = "Battery Forensics Logo",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(36.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -143,7 +152,7 @@ fun ForensicsTopAppBar(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "AI Doctor",
+                            text = if (isAiDoctorUnlocked) "AI Doctor" else "Unlock AI Doctor",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = ForensicsPalette.PurplePrimary
@@ -433,5 +442,90 @@ fun ForensicsCard(
         shadowElevation = 2.dp
     ) {
         content()
+    }
+}
+
+@Composable
+fun InlineForensicsAdBannerCard(
+    placementLabel: String,
+    tagName: String,
+    modifier: Modifier = Modifier
+) {
+    val isEmulator = RewardedAdManager.isVirtualOrEmulatorDevice()
+    ForensicsCard(
+        modifier = modifier.testTag(tagName),
+        containerColor = ForensicsPalette.CardSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ClassificationBadge(
+                        text = "Ad",
+                        containerColor = ForensicsPalette.SubtleSurfaceAlt,
+                        contentColor = ForensicsPalette.TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = placementLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ForensicsPalette.TextSecondary
+                    )
+                }
+                Text(
+                    text = "Sponsored",
+                    fontSize = 10.sp,
+                    color = ForensicsPalette.TextMuted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!isEmulator) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        AdView(ctx).apply {
+                            setAdSize(AdSize.BANNER)
+                            adUnitId = RewardedAdManager.TEST_BANNER_AD_UNIT_ID
+                            loadAd(AdRequest.Builder().build())
+                        }
+                    }
+                )
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(ForensicsPalette.SubtleSurface)
+                        .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "USB-C PD 100W E-Marker Cable Tester",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ForensicsPalette.TextPrimary
+                        )
+                        Text(
+                            text = "Measure live adapter ripple & PD negotiation · AdMob Test Unit",
+                            fontSize = 11.sp,
+                            color = ForensicsPalette.TextSecondary
+                        )
+                    }
+                }
+            }
+        }
     }
 }

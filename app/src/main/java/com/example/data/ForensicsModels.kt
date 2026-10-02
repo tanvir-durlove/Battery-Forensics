@@ -236,7 +236,10 @@ data class DayDrainPoint(
 )
 
 data class AiDoctorExchange(
+    val id: String = "prompt_${System.currentTimeMillis()}",
     val question: String,
+    val geminiPromptText: String = "",
+    val isUnlockedByRewardAd: Boolean = false,
     val conclusion: String,
     val evidencePoints: List<String>,
     val supportingData: String,
