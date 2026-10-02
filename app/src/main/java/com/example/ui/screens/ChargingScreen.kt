@@ -46,16 +46,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChargerProfileEntity
 import com.example.data.ChargingSessionEntity
 import com.example.data.LiveTelemetrySnapshot
 import com.example.ui.ChargingSubTab
+import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ChargerPlugGraphicIcon
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.SegmentedPillSelector
+import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
 
 @Composable
@@ -68,6 +71,7 @@ fun ChargingScreen(
     onAddChargerProfile: (String, Float, Float, Float) -> Unit,
     isDeepBenchmarkUnlocked: Boolean = false,
     onTriggerVideoAd2: () -> Unit = {},
+    onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddChargerDialog by remember { mutableStateOf(false) }
@@ -132,20 +136,35 @@ fun ChargingScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "STATUS",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.7.sp,
-                                color = ForensicsPalette.TextSecondary
-                            )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "STATUS",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.7.sp,
+                                    color = ForensicsPalette.TextSecondary
+                                )
+                                CardInfoIconButton(
+                                    topicKey = "charging_speed",
+                                    onShowTopic = onShowTopicGuide
+                                )
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = snapshot.chargingSource,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (snapshot.isCharging) ForensicsPalette.GreenPrimary else ForensicsPalette.TextPrimary
+                                color = if (snapshot.isCharging) ForensicsPalette.GreenPrimary else ForensicsPalette.TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         Text(
@@ -153,7 +172,9 @@ fun ChargingScreen(
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,
-                            color = ForensicsPalette.TextSecondary
+                            color = ForensicsPalette.TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -236,7 +257,10 @@ fun ChargingScreen(
                                         text = "Data collection in progress",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = ForensicsPalette.GreenPrimary
+                                        color = ForensicsPalette.GreenPrimary,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 8.dp)
                                     )
                                     ClassificationBadge(
                                         text = "Collecting History",
@@ -246,7 +270,7 @@ fun ChargingScreen(
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Keep using your device and plug in your charger — charging curves, wattage profiles, and session history will generate automatically as charging sessions are recorded.",
+                                    text = "Keep using your phone and plug in your charger — charging speed graphs, adapter profiles, and session history will appear here automatically as you charge.",
                                     fontSize = 13.sp,
                                     color = ForensicsPalette.TextPrimary
                                 )
@@ -310,15 +334,18 @@ fun ChargingScreen(
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val chipShape = RoundedCornerShape(8.dp)
+                        val chipShape = RoundedCornerShape(999.dp)
                         if (chargerProfiles.size >= 2) {
                             Text(
                                 text = "Compare Chargers ⇄",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ForensicsPalette.BluePrimary,
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier
                                     .clip(chipShape)
                                     .background(ForensicsPalette.BlueSoftTile)
@@ -334,6 +361,8 @@ fun ChargingScreen(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = ForensicsPalette.GreenPrimary,
+                            maxLines = 1,
+                            softWrap = false,
                             modifier = Modifier
                                 .clip(chipShape)
                                 .background(ForensicsPalette.GreenSoftTile)
@@ -407,16 +436,29 @@ fun ChargingScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Deep C-Rate, Voltage Sag & Thermal Benchmark",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.TextPrimary
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Charging Stress & Heat Check",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.TextPrimary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
+                                )
+                                CardInfoIconButton(
+                                    topicKey = "charging_health",
+                                    onShowTopic = onShowTopicGuide
+                                )
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
                             if (!isDeepBenchmarkUnlocked) {
                                 Text(
-                                    text = "Unlock live C-rate charge stress, terminal voltage sag, and thermal throttle headroom metrics for this session.",
+                                    text = "Unlock live charging speed stress, voltage stability, and safe temperature margin for this session.",
                                     fontSize = 12.sp,
                                     color = ForensicsPalette.TextSecondary
                                 )
@@ -439,7 +481,7 @@ fun ChargingScreen(
                                 Text(
                                     text = String.format(
                                         java.util.Locale.US,
-                                        "• Live C-Rate Stress: %.2fC (%d mA / %d mAh design)\n• Live Terminal Voltage: %.3f V (%s)\n• Thermal Headroom: %.1f°C below 40.0°C throttle threshold",
+                                        "• Charging Speed Stress (Live C-Rate Stress): %.2fC (%d mA / %d mAh)\n• Battery Voltage: %.3f V (%s)\n• Safe Heat Margin: %.1f°C below 40.0°C slowdown limit",
                                         cRate,
                                         snapshot.currentMilliAmps,
                                         snapshot.designCapacityMah,
@@ -471,14 +513,14 @@ fun ChargingScreen(
                     )
                 }
                 item {
-                    val tempHigh = snapshot.temperatureCelsius >= 36.0f
+                    val tempHigh = snapshot.temperatureCelsius >= 38.0f
                     ChargingHealthItemCard(
                         accentColor = if (tempHigh) ForensicsPalette.RedPrimary else ForensicsPalette.GreenPrimary,
                         title = "Temperature",
                         badgeText = snapshot.temperatureStatus,
                         badgeBg = if (tempHigh) ForensicsPalette.RedContainer else ForensicsPalette.GreenContainer,
                         badgeTextColor = if (tempHigh) ForensicsPalette.RedPrimary else ForensicsPalette.GreenPrimary,
-                        description = "Current thermistor reading: ${snapshot.temperatureCelsius}°C (${snapshot.thermalStatusLabel})."
+                        description = "Current battery temperature: ${snapshot.temperatureCelsius}°C (${snapshot.thermalStatusLabel})."
                     )
                 }
                 item {
@@ -510,13 +552,13 @@ fun ChargingScreen(
                         description = when {
                             hasTaperCrossing -> {
                                 val s = chargingSessions.first { it.startPercent < 80 && it.endPercent >= 80 }
-                                "Measured charge progression (${s.startPercent}% → ${s.endPercent}% in ${s.durationLabel}) across the 80% CC/CV threshold."
+                                "Healthy charge slowdown above 80% (${s.startPercent}% → ${s.endPercent}% in ${s.durationLabel}) to protect battery lifespan."
                             }
                             hasSessions -> {
                                 val s = chargingSessions.first()
-                                "Latest recorded charge (${s.startPercent}% → ${s.endPercent}%) did not cross the 80%–100% CV taper window."
+                                "Latest charge (${s.startPercent}% → ${s.endPercent}%) stopped before 80%, where charging normally slows down to protect the battery."
                             }
-                            else -> "Requires a charging session crossing 80% → 100% to evaluate constant-current / constant-voltage taper."
+                            else -> "Charge past 80% to check how your phone slows down charging near 100% to protect battery health."
                         }
                     )
                 }
@@ -651,14 +693,18 @@ private fun ChargingTopStatColumn(
             text = label,
             fontSize = 11.sp,
             color = ForensicsPalette.TextSecondary,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = ForensicsPalette.TextPrimary
+            color = ForensicsPalette.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -931,7 +977,12 @@ private fun ChargerProfileCard(profile: ChargerProfileEntity) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 10.dp)
+                ) {
                     ChargerPlugGraphicIcon(
                         accentColor = accentColor,
                         containerColor = softBg
@@ -942,7 +993,9 @@ private fun ChargerProfileCard(profile: ChargerProfileEntity) {
                             text = profile.name,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.TextPrimary
+                            color = ForensicsPalette.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -957,12 +1010,14 @@ private fun ChargerProfileCard(profile: ChargerProfileEntity) {
                         text = "${profile.maxObservedWatts}W",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = accentColor
+                        color = accentColor,
+                        maxLines = 1
                     )
                     Text(
-                        text = "max observed",
+                        text = "max speed",
                         fontSize = 11.sp,
-                        color = ForensicsPalette.TextSecondary
+                        color = ForensicsPalette.TextSecondary,
+                        maxLines = 1
                     )
                 }
             }
@@ -1078,7 +1133,10 @@ private fun ChargingHealthItemCard(
                         text = title,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ForensicsPalette.TextPrimary
+                        color = ForensicsPalette.TextPrimary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
                     )
                     ClassificationBadge(
                         text = badgeText,

@@ -332,6 +332,45 @@ fun SettingsCategoryGraphicIcon(
                     )
                 }
 
+                "faq" -> {
+                    // Help Circle with Question Mark
+                    val center = Offset(w / 2f, h / 2f)
+                    val r = w * 0.40f
+                    drawCircle(
+                        color = accentColor.copy(alpha = 0.20f),
+                        radius = r,
+                        center = center
+                    )
+                    drawCircle(
+                        color = accentColor,
+                        radius = r,
+                        center = center,
+                        style = stroke
+                    )
+                    // Question arc + stem + dot
+                    drawArc(
+                        color = accentColor,
+                        startAngle = 195f,
+                        sweepAngle = 215f,
+                        useCenter = false,
+                        topLeft = Offset(w * 0.36f, h * 0.24f),
+                        size = Size(w * 0.28f, h * 0.24f),
+                        style = stroke
+                    )
+                    drawLine(
+                        color = accentColor,
+                        start = Offset(w * 0.50f, h * 0.48f),
+                        end = Offset(w * 0.50f, h * 0.58f),
+                        strokeWidth = 2.0.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawCircle(
+                        color = accentColor,
+                        radius = 1.4.dp.toPx(),
+                        center = Offset(w * 0.50f, h * 0.72f)
+                    )
+                }
+
                 else -> {
                     // Precision Gear
                     val center = Offset(w / 2f, h / 2f)

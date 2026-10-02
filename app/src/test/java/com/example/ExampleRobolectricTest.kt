@@ -382,6 +382,12 @@ class ExampleRobolectricTest {
         composeTestRule.onNodeWithText("Close").performClick()
         composeTestRule.waitForIdle()
 
+        // Verify new Real-Time Drain Rate Monitor card on Dashboard
+        composeTestRule.onNodeWithTag("dashboard_screen").performScrollToIndex(5)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("drain_rate_monitor_card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("DRAIN RATE MONITOR").assertIsDisplayed()
+
         // 2. Navigate to Diagnose (Drain Detective) Tab and verify 'Data collection in progress' card
         composeTestRule.onNodeWithTag("bottom_nav_diagnose").performClick()
         composeTestRule.waitForIdle()
@@ -431,10 +437,43 @@ class ExampleRobolectricTest {
         composeTestRule.onNodeWithTag("segmented_option_history").performClick()
         composeTestRule.waitForIdle()
 
-        // 5. Navigate to Settings Tab
+        // 5. Navigate to Settings Tab & verify FAQ & Battery Guide section
         composeTestRule.onNodeWithTag("bottom_nav_settings").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("settings_screen").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings_nav_faq & battery guide").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("settings_screen").performScrollToIndex(2)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("open_onboarding_tour_button").assertIsDisplayed()
+
+        // Scroll to the Stat Dictionary and tap a statistic topic to open the Tap-to-Explain Bottom Sheet
+        composeTestRule.onNodeWithTag("settings_screen").performScrollToIndex(3)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("faq_stat_topic_health_score").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("stat_info_bottom_sheet").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Got it").performClick()
+        composeTestRule.waitForIdle()
+
+        // Open the 4-Screen SVG Onboarding from Settings and step through all 4 screens
+        composeTestRule.onNodeWithTag("settings_screen").performScrollToIndex(2)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("open_onboarding_tour_button").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("guide_and_onboarding_modal").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("svg_card_1").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("onboarding_continue_button").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("svg_card_2").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("onboarding_continue_button").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("svg_card_3").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("onboarding_continue_button").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("svg_card_4").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("onboarding_start_diagnostics_button").performClick()
+        composeTestRule.waitForIdle()
 
         // 6. Click Unlock AI Doctor in top bar -> unlocks directly without middle popup modal and opens AI Doctor sheet
         assertEquals("ca-app-pub-3940256099942544/5224354917", com.example.data.RewardedAdManager.TEST_REWARDED_AD_UNIT_ID)
@@ -452,5 +491,35 @@ class ExampleRobolectricTest {
         composeTestRule.onNodeWithTag("copy_gemini_prompt_button").assertIsDisplayed()
         composeTestRule.onNodeWithTag("copy_gemini_prompt_button").performClick()
         composeTestRule.waitForIdle()
+    }
+
+    @Test
+    fun `verify capacity capping at design capacity and moving average smoothing plus calibration state`() {
+        val scanner = com.example.data.DeviceTelemetryScanner(composeTestRule.activity)
+        // Verify that an over-design raw coulomb reading (4996 mAh) is strictly capped at Design Capacity (4855 mAh)
+        val (cappedMah, sampleCount1) = scanner.recordAndSmoothCapacityEstimate(
+            rawEstimateMah = 4996,
+            designCapacityMah = 4855,
+            isCharging = true,
+            batteryPercent = 80
+        )
+        assertEquals(4855, cappedMah)
+        assertTrue(sampleCount1 >= 1)
+
+        // Add a lower sample (4755 mAh) and verify moving average smoothing works and stays <= 4855 mAh
+        val (smoothedMah, sampleCount2) = scanner.recordAndSmoothCapacityEstimate(
+            rawEstimateMah = 4755,
+            designCapacityMah = 4855,
+            isCharging = true,
+            batteryPercent = 85
+        )
+        assertTrue(smoothedMah in 4755..4855)
+        assertEquals(2, sampleCount2)
+
+        // Verify live telemetry starts in Calibration State on initial learning cycles
+        val snap = scanner.captureLiveTelemetry()
+        assertTrue(snap.isHealthScoreCalibrating)
+        assertEquals(0, snap.healthScore)
+        assertTrue(snap.healthCalibrationStatusText.contains("Learning your battery patterns"))
     }
 }

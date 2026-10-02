@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.CapabilityStatus
@@ -55,9 +57,13 @@ import com.example.data.ManufacturerProfileInfo
 import com.example.ui.AlertSensitivity
 import com.example.ui.SettingsSection
 import com.example.ui.components.CapabilityStatusGraphicBadge
+import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
+import com.example.ui.components.FaqAccordionList
 import com.example.ui.components.ForensicsCard
+import com.example.ui.components.ForensicsGuideCatalog
 import com.example.ui.components.SettingsCategoryGraphicIcon
+import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
 
 @Composable
@@ -84,11 +90,14 @@ fun SettingsScreen(
     onRunConsoleCommand: (String) -> String,
     onPermissionsUpdated: () -> Unit,
     isExportUnlocked: Boolean = false,
+    onOpenOnboardingTour: () -> Unit = {},
+    onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var showDeleteConfirmModal by remember { mutableStateOf(false) }
     var activeDeveloperTool by remember { mutableStateOf<String?>(null) }
+    var expandedFaqIndex by remember { mutableIntStateOf(0) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -114,13 +123,13 @@ fun SettingsScreen(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Permissions, privacy, alerts, and advanced.",
+                text = "Permissions, privacy, alerts, advanced, and FAQ guide.",
                 fontSize = 13.sp,
                 color = ForensicsPalette.TextSecondary
             )
         }
 
-        // 2x2 Sub-Navigation Grid (Permissions, Privacy, Alerts, Advanced) with custom vector icons & borders
+        // Sub-Navigation Grid (Permissions, Privacy, Alerts, Advanced + Full-Width FAQ & Battery Guide)
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
@@ -181,6 +190,18 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                SettingsNavTile(
+                    categoryKey = "faq",
+                    label = "FAQ & Battery Guide",
+                    isSelected = section == SettingsSection.FAQ,
+                    activeBg = ForensicsPalette.BlueContainer,
+                    activeBorder = ForensicsPalette.BlueBorder,
+                    activeTextColor = ForensicsPalette.BluePrimary,
+                    iconAccent = ForensicsPalette.BluePrimary,
+                    iconBg = ForensicsPalette.BlueSoftTile,
+                    onClick = { onSelectSection(SettingsSection.FAQ) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
 
@@ -194,17 +215,27 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .padding(18.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ClassificationBadge(
-                                    text = "Required",
-                                    containerColor = ForensicsPalette.BlueContainer,
-                                    contentColor = ForensicsPalette.BluePrimary
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Core functionality",
-                                    fontSize = 12.sp,
-                                    color = ForensicsPalette.TextSecondary
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ClassificationBadge(
+                                        text = "Required",
+                                        containerColor = ForensicsPalette.BlueContainer,
+                                        contentColor = ForensicsPalette.BluePrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Core functionality",
+                                        fontSize = 12.sp,
+                                        color = ForensicsPalette.TextSecondary
+                                    )
+                                }
+                                CardInfoIconButton(
+                                    topicKey = "settings_permissions",
+                                    onShowTopic = onShowTopicGuide
                                 )
                             }
                             Spacer(modifier = Modifier.height(16.dp))
@@ -388,8 +419,8 @@ fun SettingsScreen(
                             HorizontalDivider(color = ForensicsPalette.DividerColor)
                             Spacer(modifier = Modifier.height(14.dp))
                             PrivacyAlwaysOnRow(
-                                title = "No hidden telemetry",
-                                subtitle = "App does not collect behavioral telemetry."
+                                title = "No hidden tracking",
+                                subtitle = "App never tracks your personal activity."
                             )
                         }
                     }
@@ -680,7 +711,7 @@ fun SettingsScreen(
                             }
                             Spacer(modifier = Modifier.height(14.dp))
                             Text(
-                                text = "Alerts fire only when measurable evidence supports the notification. No unsupported claims.",
+                                text = "Alerts only notify you when real battery changes are detected.",
                                 fontSize = 12.sp,
                                 color = ForensicsPalette.TextSecondary
                             )
@@ -718,7 +749,7 @@ fun SettingsScreen(
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Unlocks wakelock analysis, battery history, and system power data. Requires USB debugging.",
+                                    text = "Unlocks deep background wakeup checks and system power history using a PC connection (USB debugging).",
                                     fontSize = 13.sp,
                                     color = ForensicsPalette.TextSecondary
                                 )
@@ -845,7 +876,7 @@ fun SettingsScreen(
                             }
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "~0.8% estimated daily · Event-driven monitoring · No continuous polling",
+                                text = "~0.8% estimated daily · Smart low-power tracking · Doesn't drain your battery",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = ForensicsPalette.GreenPrimary
@@ -868,11 +899,14 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "OEM PROFILE: ${manufacturerProfile.manufacturer.uppercase()}",
+                                    text = "PHONE BRAND TIPS: ${manufacturerProfile.manufacturer.uppercase()}",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp,
-                                    color = ForensicsPalette.TextSecondary
+                                    color = ForensicsPalette.TextSecondary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
                                 )
                                 ClassificationBadge(
                                     text = manufacturerProfile.osSkinLabel,
@@ -923,7 +957,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "A diagnostic & forensics tool. Not a battery cleaner, RAM booster, or cache optimizer. Every conclusion is evidence-based.",
+                                text = "An honest battery health & drain tracker. No fake boosters or cleaners — just real measurements from your phone.",
                                 fontSize = 13.sp,
                                 color = ForensicsPalette.TextSecondary,
                                 textAlign = TextAlign.Center
@@ -931,6 +965,163 @@ fun SettingsScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(20.dp))
+                }
+            }
+
+            SettingsSection.FAQ -> {
+                // 1. Interactive App Tour Card
+                item {
+                    ForensicsCard(containerColor = ForensicsPalette.BlueSoftTile) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Diagnostic Onboarding & Setup",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.TextPrimary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
+                                )
+                                ClassificationBadge(
+                                    text = "3-Step Setup",
+                                    containerColor = ForensicsPalette.BlueContainer,
+                                    contentColor = ForensicsPalette.BluePrimary
+                                )
+                            }
+                            Text(
+                                text = "Review how Battery Forensics verifies device signals, labels confidence levels, and lets you choose your starting diagnostic level.",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = onOpenOnboardingTour,
+                                colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.testTag("open_onboarding_tour_button")
+                            ) {
+                                Text(
+                                    text = "Open Onboarding Setup →",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 2. What Every Statistic Means (Interactive Dictionary)
+                item {
+                    ForensicsCard {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "WHAT EVERY STATISTIC MEANS",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = ForensicsPalette.TextSecondary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
+                                )
+                                ClassificationBadge(
+                                    text = "Tap to Explain",
+                                    containerColor = ForensicsPalette.GreenContainer,
+                                    contentColor = ForensicsPalette.GreenPrimary
+                                )
+                            }
+                            Text(
+                                text = "Tap any topic below (or the 'What's this?' button on any screen) to see plain-English meanings, healthy numbers, and warning thresholds:",
+                                fontSize = 12.sp,
+                                color = ForensicsPalette.TextSecondary
+                            )
+
+                            ForensicsGuideCatalog.topics.values.forEachIndexed { idx, topic ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(ForensicsPalette.SubtleSurface)
+                                        .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                                        .clickable { onShowTopicGuide(topic) }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                                        .testTag("faq_stat_topic_${topic.key}"),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = topic.title,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ForensicsPalette.TextPrimary
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${topic.category} · Healthy: ${topic.healthyRange}",
+                                            fontSize = 11.sp,
+                                            color = ForensicsPalette.TextSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Text(
+                                        text = "Explain →",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ForensicsPalette.BluePrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Frequently Asked Questions Accordion
+                item {
+                    Text(
+                        text = "FREQUENTLY ASKED QUESTIONS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        color = ForensicsPalette.TextSecondary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
+                item {
+                    FaqAccordionList(
+                        expandedIndex = expandedFaqIndex,
+                        onSelectIndex = { idx ->
+                            expandedFaqIndex = if (expandedFaqIndex == idx) -1 else idx
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
@@ -1075,7 +1266,9 @@ private fun SettingsNavTile(
                 text = label,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) activeTextColor else ForensicsPalette.TextPrimary
+                color = if (isSelected) activeTextColor else ForensicsPalette.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1157,7 +1350,11 @@ private fun PrivacyAlwaysOnRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        ) {
             Text(
                 text = title,
                 fontSize = 15.sp,

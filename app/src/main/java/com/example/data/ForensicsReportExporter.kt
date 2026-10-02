@@ -69,7 +69,12 @@ class ForensicsReportExporter(private val context: Context) {
             y += 14f
             canvas.drawText("Live State: ${snapshot.batteryPercent}% | ${snapshot.temperatureCelsius}°C (Measured) | ${snapshot.voltageVolts}V (Measured) | ${snapshot.currentMilliAmps}mA (Measured)", 36f, y, bodyPaint)
             y += 14f
-            canvas.drawText("Battery Health Score: ${snapshot.healthScore}/100 (App Estimate: ~${snapshot.estimatedFullCapacityMah}/${snapshot.designCapacityMah} mAh)", 36f, y, bodyPaint)
+            val healthSummaryLine = if (!snapshot.isHealthScoreCalibrating && snapshot.healthScore > 0) {
+                "Battery Health Score: ${snapshot.healthScore.coerceAtMost(100)}/100 (Capped & Smoothed: ~${snapshot.estimatedFullCapacityMah}/${snapshot.designCapacityMah} mAh | Cycles: ${snapshot.estimatedCycleCount})"
+            } else {
+                "Battery Health Score: Calibrating... (${snapshot.healthCalibrationStatusText} | Cap: ~${snapshot.estimatedFullCapacityMah}/${snapshot.designCapacityMah} mAh | Cycles: ${snapshot.estimatedCycleCount})"
+            }
+            canvas.drawText(healthSummaryLine, 36f, y, bodyPaint)
             y += 14f
             val capSummary = capabilities.joinToString(", ") { "${it.name}: ${it.rightNote ?: "Supported"}" }
             canvas.drawText("Capabilities: ${capSummary.take(95)}", 36f, y, mutedPaint)

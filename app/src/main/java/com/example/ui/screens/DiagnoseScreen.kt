@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AdbWakelockEntry
@@ -52,10 +55,12 @@ import com.example.data.ExperimentEntity
 import com.example.data.TimelineEventEntity
 import com.example.ui.ActiveDiagnosticTestRun
 import com.example.ui.DiagnoseSubTab
+import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.DiagnosticTestGraphicIcon
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.SegmentedPillSelector
+import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -84,6 +89,7 @@ fun DiagnoseScreen(
     onOpenAiDoctor: () -> Unit,
     videoAd1ShownCount: Int = 0,
     onTriggerVideoAd1: () -> Unit = {},
+    onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val selectedSession = sessions.firstOrNull { it.id == selectedSessionId } ?: sessions.firstOrNull()
@@ -106,34 +112,42 @@ fun DiagnoseScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 10.dp)
+                ) {
                     Text(
                         text = "Drain Detective",
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ForensicsPalette.TextPrimary
+                        color = ForensicsPalette.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Every conclusion traced to evidence.",
+                        text = "See clear reasons why your battery drained.",
                         fontSize = 13.sp,
                         color = ForensicsPalette.TextSecondary
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(999.dp))
                         .background(ForensicsPalette.BlueContainer)
-                        .border(1.dp, ForensicsPalette.BlueBorder, RoundedCornerShape(12.dp))
+                        .border(1.dp, ForensicsPalette.BlueBorder, RoundedCornerShape(999.dp))
                         .clickable { onOpenAiDoctor() }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                         .testTag("diagnose_ask_ai_button")
                 ) {
                     Text(
                         text = "Ask Why →",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ForensicsPalette.BluePrimary
+                        color = ForensicsPalette.BluePrimary,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -173,7 +187,10 @@ fun DiagnoseScreen(
                                     text = "Data collection in progress",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.BluePrimary
+                                    color = ForensicsPalette.BluePrimary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
                                 )
                                 ClassificationBadge(
                                     text = "Calibrating",
@@ -181,9 +198,14 @@ fun DiagnoseScreen(
                                     contentColor = ForensicsPalette.BluePrimary
                                 )
                             }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            CardInfoIconButton(
+                                topicKey = "diagnose_drain",
+                                onShowTopic = onShowTopicGuide
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Keep using your phone normally — live charging and discharging events are being tracked. Period breakdowns, contributor rankings, and traceable evidence chains will generate soon once enough battery history has been recorded.",
+                                text = "Keep using your phone normally — live charging and battery drain are being tracked. Detailed drain breakdowns and top battery users will appear here once enough history is recorded.",
                                 fontSize = 13.sp,
                                 color = ForensicsPalette.TextPrimary
                             )
@@ -219,11 +241,11 @@ fun DiagnoseScreen(
                                     color = ForensicsPalette.TextPrimary
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
-                                LimitationBullet("Exact per-app battery consumption — unavailable")
+                                LimitationBullet("Exact per-app battery % — hidden by Android")
                                 Spacer(modifier = Modifier.height(6.dp))
-                                LimitationBullet("System-wide wakelocks — ADB mode required")
+                                LimitationBullet("Background wakeups — PC connection (ADB) needed")
                                 Spacer(modifier = Modifier.height(6.dp))
-                                LimitationBullet("True deep-sleep data — not exposed by OEM")
+                                LimitationBullet("Deep sleep time — hidden by phone brand")
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "Enable ADB Mode →",
@@ -246,7 +268,10 @@ fun DiagnoseScreen(
                                         text = "ADB-Derived Diagnostic Data",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = ForensicsPalette.GreenPrimary
+                                        color = ForensicsPalette.GreenPrimary,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 8.dp)
                                     )
                                     ClassificationBadge(
                                         text = "ADB Mode Active",
@@ -290,24 +315,38 @@ fun DiagnoseScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "SELECT PERIOD",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp,
-                                color = ForensicsPalette.TextSecondary
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = "SELECT PERIOD",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = ForensicsPalette.TextSecondary
+                                )
+                                CardInfoIconButton(
+                                    topicKey = "diagnose_drain",
+                                    onShowTopic = onShowTopicGuide
+                                )
+                            }
                             Text(
                                 text = "Compare Periods ⇄",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ForensicsPalette.BluePrimary,
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(999.dp))
                                     .background(ForensicsPalette.BlueSoftTile)
-                                    .border(1.dp, ForensicsPalette.BlueBorder, RoundedCornerShape(8.dp))
+                                    .border(1.dp, ForensicsPalette.BlueBorder, RoundedCornerShape(999.dp))
                                     .clickable { showComparisonDialog = true }
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    .padding(horizontal = 12.dp, vertical = 5.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -332,19 +371,27 @@ fun DiagnoseScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 10.dp)
+                                    ) {
                                         Text(
                                             text = session.title,
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = titleColor
+                                            color = titleColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = session.timeWindow,
                                             fontSize = 12.sp,
                                             fontFamily = FontFamily.Monospace,
-                                            color = ForensicsPalette.TextSecondary
+                                            color = ForensicsPalette.TextSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
 
@@ -394,7 +441,10 @@ fun DiagnoseScreen(
                                 text = "${selectedSession.title} · ${selectedSession.durationHoursLabel}",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.AmberDarkText
+                                color = ForensicsPalette.AmberDarkText,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
                             )
                             ClassificationBadge(
                                 text = selectedSession.overallConfidence,
@@ -418,20 +468,23 @@ fun DiagnoseScreen(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Max),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             val subShape = RoundedCornerShape(14.dp)
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .fillMaxHeight()
                                     .clip(subShape)
                                     .background(innerBg)
                                     .border(1.dp, innerBorder, subShape)
                                     .padding(14.dp)
                             ) {
                                 Text(
-                                    text = "DRAIN RATE",
+                                    text = "DRAIN SPEED",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.6.sp,
@@ -440,27 +493,32 @@ fun DiagnoseScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "${selectedSession.drainRatePerHr}%/hr",
-                                    fontSize = 22.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.TextPrimary
+                                    color = ForensicsPalette.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = "Normal: ${selectedSession.normalDrainRatePerHr}%/hr",
+                                    text = "Usual: ${selectedSession.normalDrainRatePerHr}%/hr",
                                     fontSize = 11.sp,
-                                    color = ForensicsPalette.TextSecondary
+                                    color = ForensicsPalette.TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .fillMaxHeight()
                                     .clip(subShape)
                                     .background(innerBg)
                                     .border(1.dp, innerBorder, subShape)
                                     .padding(14.dp)
                             ) {
                                 Text(
-                                    text = "BATTERY LOST",
+                                    text = "BATTERY USED",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.6.sp,
@@ -469,15 +527,19 @@ fun DiagnoseScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "${selectedSession.startBatteryPercent}%→${selectedSession.endBatteryPercent}%",
-                                    fontSize = 22.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.TextPrimary
+                                    color = ForensicsPalette.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = "${selectedSession.drainPercent} percentage points",
+                                    text = "${selectedSession.drainPercent}% total drop",
                                     fontSize = 11.sp,
-                                    color = ForensicsPalette.TextSecondary
+                                    color = ForensicsPalette.TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -577,7 +639,7 @@ fun DiagnoseScreen(
                                     .padding(18.dp)
                             ) {
                                 Text(
-                                    text = "TRACEABLE EVIDENCE CHAIN",
+                                    text = "STEP-BY-STEP DRAIN BREAKDOWN",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp,
@@ -590,7 +652,11 @@ fun DiagnoseScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(end = 8.dp)
+                                        ) {
                                             Text(
                                                 text = step.observation,
                                                 fontSize = 14.sp,
@@ -640,19 +706,24 @@ fun DiagnoseScreen(
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.8.sp,
-                                        color = ForensicsPalette.TextSecondary
+                                        color = ForensicsPalette.TextSecondary,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 8.dp)
                                     )
                                     Text(
-                                        text = "+ Annotate Event",
+                                        text = "+ Add Note",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = ForensicsPalette.BluePrimary,
+                                        maxLines = 1,
+                                        softWrap = false,
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(RoundedCornerShape(999.dp))
                                             .background(ForensicsPalette.BlueSoftTile)
-                                            .border(1.dp, ForensicsPalette.BlueBorder, RoundedCornerShape(8.dp))
+                                            .border(1.dp, ForensicsPalette.BlueBorder, RoundedCornerShape(999.dp))
                                             .clickable { showAnnotateDialog = true }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                            .padding(horizontal = 12.dp, vertical = 5.dp)
                                             .testTag("annotate_timeline_button")
                                     )
                                 }
@@ -711,7 +782,7 @@ fun DiagnoseScreen(
                                     .padding(18.dp)
                             ) {
                                 Text(
-                                    text = "EVIDENCE-BASED RECOMMENDATIONS & VERIFICATION",
+                                    text = "WAYS TO SAVE BATTERY",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp,
@@ -734,7 +805,9 @@ fun DiagnoseScreen(
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = ForensicsPalette.TextPrimary,
-                                                modifier = Modifier.weight(1f)
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp)
                                             )
                                             ClassificationBadge(
                                                 text = rec.verificationConfidence.label,
@@ -801,11 +874,11 @@ fun DiagnoseScreen(
                                 color = ForensicsPalette.TextPrimary
                             )
                             Spacer(modifier = Modifier.height(10.dp))
-                            LimitationBullet("Exact per-app battery consumption — unavailable")
+                            LimitationBullet("Exact per-app battery % — hidden by Android")
                             Spacer(modifier = Modifier.height(6.dp))
-                            LimitationBullet("System-wide wakelocks — ADB mode required")
+                            LimitationBullet("Background wakeups — PC connection (ADB) needed")
                             Spacer(modifier = Modifier.height(6.dp))
-                            LimitationBullet("True deep-sleep data — not exposed by Pixel OEM")
+                            LimitationBullet("Deep sleep time — hidden by phone brand")
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "Enable ADB Mode →",
@@ -828,7 +901,10 @@ fun DiagnoseScreen(
                                     text = "ADB-Derived Diagnostic Data",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.GreenPrimary
+                                    color = ForensicsPalette.GreenPrimary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
                                 )
                                 ClassificationBadge(
                                     text = "ADB Mode Active",
@@ -878,10 +954,13 @@ fun DiagnoseScreen(
                                     text = "LIVE TEST: ${activeTestRun.testName.uppercase()}",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.BluePrimary
+                                    color = ForensicsPalette.BluePrimary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
                                 )
                                 ClassificationBadge(
-                                    text = "Sampling (${activeTestRun.elapsedSeconds}s)",
+                                    text = "Testing (${activeTestRun.elapsedSeconds}s)",
                                     containerColor = ForensicsPalette.BlueContainer,
                                     contentColor = ForensicsPalette.BluePrimary
                                 )
@@ -1014,9 +1093,14 @@ fun DiagnoseScreen(
                             fontWeight = FontWeight.Bold,
                             color = ForensicsPalette.PurpleDeepButton
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        CardInfoIconButton(
+                            topicKey = "diagnose_tests",
+                            onShowTopic = onShowTopicGuide
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Test a hypothesis: \"Is App X draining my battery?\" Define, baseline, collect, compare.",
+                            text = "Test a simple question: \"Is this app or setting draining my battery?\" Compare before and after.",
                             fontSize = 13.sp,
                             color = ForensicsPalette.PurplePrimary,
                             textAlign = TextAlign.Center
@@ -1024,7 +1108,7 @@ fun DiagnoseScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
+                                .clip(RoundedCornerShape(999.dp))
                                 .background(ForensicsPalette.PurpleDeepButton)
                                 .clickable { showNewExperimentDialog = true }
                                 .padding(horizontal = 24.dp, vertical = 12.dp)
@@ -1034,7 +1118,9 @@ fun DiagnoseScreen(
                                 text = "New Experiment",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -1070,7 +1156,9 @@ fun DiagnoseScreen(
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = ForensicsPalette.TextPrimary,
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(end = 8.dp)
                                         )
                                         ClassificationBadge(
                                             text = exp.confidenceLabel,
@@ -1349,7 +1437,9 @@ private fun DiagnosticTestCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp)
             ) {
                 DiagnosticTestGraphicIcon(
                     testType = testGraphicType,
@@ -1379,10 +1469,12 @@ private fun DiagnosticTestCard(
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium,
-                    color = ForensicsPalette.TextSecondary
+                    color = ForensicsPalette.TextSecondary,
+                    maxLines = 1,
+                    softWrap = false
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                val btnShape = RoundedCornerShape(50)
+                val btnShape = RoundedCornerShape(999.dp)
                 Box(
                     modifier = Modifier
                         .clip(btnShape)
@@ -1396,7 +1488,9 @@ private fun DiagnosticTestCard(
                         text = "Start",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = buttonTextColor
+                        color = buttonTextColor,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }

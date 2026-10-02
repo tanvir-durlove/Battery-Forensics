@@ -44,6 +44,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,9 +52,11 @@ import com.example.data.ActivityEstimateItem
 import com.example.data.CapabilityItem
 import com.example.data.LiveTelemetrySnapshot
 import com.example.ui.components.CapabilityStatusGraphicBadge
+import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
+import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
 import kotlin.math.cos
 import kotlin.math.sin
@@ -66,6 +69,7 @@ fun DashboardScreen(
     isHistoryEmpty: Boolean = false,
     onRefresh: () -> Unit,
     onNavigateToDiagnose: () -> Unit,
+    onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showHealthModal by remember { mutableStateOf(false) }
@@ -87,18 +91,26 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 10.dp)
+                ) {
                     Text(
                         text = snapshot.deviceModel,
-                        fontSize = 24.sp,
+                        fontSize = 23.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ForensicsPalette.TextPrimary
+                        color = ForensicsPalette.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Android ${snapshot.androidVersion} · Monitoring active",
+                        text = "Android ${snapshot.androidVersion} · Live monitoring active",
                         fontSize = 13.sp,
-                        color = ForensicsPalette.TextSecondary
+                        color = ForensicsPalette.TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Box(
@@ -114,7 +126,9 @@ fun DashboardScreen(
                         fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold,
-                        color = ForensicsPalette.TextSecondary
+                        color = ForensicsPalette.TextSecondary,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -141,7 +155,12 @@ fun DashboardScreen(
                                 text = "Data collection in progress",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.BluePrimary
+                                color = ForensicsPalette.BluePrimary,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             ClassificationBadge(
                                 text = "Live Tracking",
@@ -151,7 +170,7 @@ fun DashboardScreen(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Tracking live charging and discharging events. Keep using your device normally — battery history, drain rate estimates, and session breakdowns will generate soon.",
+                            text = "We're learning how your battery behaves as you charge and use your phone. Detailed history, drain speed, and daily summaries will appear here automatically.",
                             fontSize = 13.sp,
                             color = ForensicsPalette.TextPrimary
                         )
@@ -196,7 +215,7 @@ fun DashboardScreen(
                         )
                         GaugeStatColumn(
                             value = snapshot.estRemainingText,
-                            label = "Est. remaining",
+                            label = "Time left",
                             modifier = Modifier.weight(1f)
                         )
                         VerticalDivider(
@@ -206,7 +225,7 @@ fun DashboardScreen(
                         )
                         GaugeStatColumn(
                             value = snapshot.awakeOffScreenText,
-                            label = "Awake off-screen",
+                            label = "Background active",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -217,69 +236,307 @@ fun DashboardScreen(
         // Native Ad Card (Above the Fold — Top of Home Dashboard)
         item {
             InlineForensicsAdBannerCard(
-                placementLabel = "Hardware Diagnostics",
+                placementLabel = "Battery Care",
                 tagName = "home_inline_ad_card"
             )
         }
 
         // 2x2 Metric Grid Cards (Temperature, Voltage, Current, Health Score)
         item {
+            val isWarm = snapshot.temperatureCelsius >= 38.0f || snapshot.isThermalWarningActive
+            val isHot = snapshot.temperatureCelsius >= 40.0f
+            val tempBadgeBg = when {
+                isHot -> ForensicsPalette.RedContainer
+                isWarm -> ForensicsPalette.AmberPill
+                else -> ForensicsPalette.GreenContainer
+            }
+            val tempAccentColor = when {
+                isHot -> ForensicsPalette.RedPrimary
+                isWarm -> ForensicsPalette.TemperatureOrange
+                else -> ForensicsPalette.GreenPrimary
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "LIVE BATTERY READINGS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        color = ForensicsPalette.TextSecondary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                    )
+                    CardInfoIconButton(
+                        topicKey = "live_readings",
+                        onShowTopic = onShowTopicGuide
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Max),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     MetricQuadCard(
                         title = "Temperature",
-                        badgeText = snapshot.temperatureClassification.label,
-                        badgeBg = ForensicsPalette.AmberPill,
-                        badgeTextColor = ForensicsPalette.AmberPrimary,
+                        badgeText = if (isWarm) "Warm" else "Live",
+                        badgeBg = tempBadgeBg,
+                        badgeTextColor = tempAccentColor,
                         mainValue = "${snapshot.temperatureCelsius}",
                         unit = " °C",
-                        valueColor = ForensicsPalette.TemperatureOrange,
+                        valueColor = tempAccentColor,
                         subtitle = snapshot.temperatureStatus,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .testTag("temperature_metric_card")
                     )
                     MetricQuadCard(
                         title = "Voltage",
-                        badgeText = snapshot.voltageClassification.label,
+                        badgeText = "Live",
                         badgeBg = ForensicsPalette.BlueContainer,
                         badgeTextColor = ForensicsPalette.BluePrimary,
                         mainValue = "${snapshot.voltageVolts}",
                         unit = " V",
                         valueColor = ForensicsPalette.BlueBright,
                         subtitle = snapshot.voltageStatus,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Max),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     MetricQuadCard(
-                        title = "Current",
-                        badgeText = snapshot.currentClassification.label,
+                        title = "Power Flow",
+                        badgeText = if (snapshot.currentMilliAmps != 0) "Live" else "Auto",
                         badgeBg = ForensicsPalette.PurpleContainer,
                         badgeTextColor = ForensicsPalette.PurplePrimary,
                         mainValue = if (snapshot.currentMilliAmps != 0) "${snapshot.currentMilliAmps}" else "—",
                         unit = " mA",
                         valueColor = ForensicsPalette.PurpleBright,
                         subtitle = snapshot.currentStatus,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
+                    val showCalibratedScore = !snapshot.isHealthScoreCalibrating && snapshot.healthScore > 0
                     MetricQuadCard(
                         title = "Health Score",
-                        badgeText = snapshot.healthScoreClassification.label,
+                        badgeText = if (showCalibratedScore) "Ready" else "Learning",
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
-                        mainValue = if (snapshot.healthScore > 0) "${snapshot.healthScore}" else "—",
-                        unit = if (snapshot.healthScore > 0) " /100" else " Calibrating",
+                        mainValue = if (showCalibratedScore) "${snapshot.healthScore.coerceAtMost(100)}" else "Calibrating...",
+                        unit = if (showCalibratedScore) " /100" else "",
+                        valueFontSize = if (showCalibratedScore) 26 else 18,
                         valueColor = ForensicsPalette.GreenPrimary,
-                        subtitle = if (snapshot.healthScore > 0) "App estimate" else "Charge to estimate",
+                        subtitle = if (showCalibratedScore) {
+                            "Based on ${snapshot.smoothedCapacitySampleCount} charges"
+                        } else {
+                            snapshot.healthCalibrationStatusText
+                        },
                         onClick = { showHealthModal = true },
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
                             .testTag("health_score_card")
+                    )
+                }
+
+                // Dynamic Thermal Alert Banner when temperature >= 38.0°C
+                if (isWarm) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isHot) ForensicsPalette.RedContainer else ForensicsPalette.AmberContainer)
+                            .border(
+                                1.dp,
+                                if (isHot) ForensicsPalette.RedBorder else ForensicsPalette.AmberBorder,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(14.dp)
+                            .testTag("thermal_warning_banner")
+                    ) {
+                        Text(
+                            text = snapshot.thermalAdvisoryTip
+                                ?: "Your device is running warm, which may temporarily affect battery performance and measurement accuracy.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isHot) ForensicsPalette.RedPrimary else ForensicsPalette.AmberPrimary
+                        )
+                    }
+                }
+            }
+        }
+
+        // REAL-TIME BATTERY DRAIN RATE MONITOR Card (Discharging Analytics: Active Use vs Standby)
+        item {
+            ForensicsCard(
+                modifier = Modifier.testTag("drain_rate_monitor_card")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 10.dp)
+                        ) {
+                            Text(
+                                text = "DRAIN RATE MONITOR",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = snapshot.drainMonitorStatusText,
+                                fontSize = 12.sp,
+                                color = ForensicsPalette.TextMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            CardInfoIconButton(
+                                topicKey = "drain_monitor",
+                                onShowTopic = onShowTopicGuide
+                            )
+                            ClassificationBadge(
+                                text = if (snapshot.isCharging) "Paused" else "Active",
+                                containerColor = if (snapshot.isCharging) ForensicsPalette.AmberContainer else ForensicsPalette.GreenContainer,
+                                contentColor = if (snapshot.isCharging) ForensicsPalette.AmberPrimary else ForensicsPalette.GreenPrimary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val boxShape = RoundedCornerShape(12.dp)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(boxShape)
+                                .background(ForensicsPalette.BlueSoftTile)
+                                .border(1.dp, ForensicsPalette.BlueBorder, boxShape)
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "SCREEN ON USE",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.BluePrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (snapshot.activeDrainRatePerHr > 0f) {
+                                    String.format(java.util.Locale.US, "%.1f%% / hr", snapshot.activeDrainRatePerHr)
+                                } else {
+                                    "Measuring..."
+                                },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Active (${snapshot.activeDischargingMinutes}m)",
+                                fontSize = 11.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(boxShape)
+                                .background(ForensicsPalette.PurpleSoftTile)
+                                .border(1.dp, ForensicsPalette.PurpleBorder, boxShape)
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "SCREEN OFF STANDBY",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.PurplePrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (snapshot.standbyDrainRatePerHr > 0f) {
+                                    String.format(java.util.Locale.US, "%.1f%% / hr", snapshot.standbyDrainRatePerHr)
+                                } else {
+                                    "Measuring..."
+                                },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Locked (${snapshot.standbyDischargingMinutes}m)",
+                                fontSize = 11.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = if (snapshot.standbyDrainRatePerHr > 1.5f) {
+                            "High standby drain noticed — background apps or weak signal are using battery while your screen is locked."
+                        } else {
+                            "Compares how fast your battery drains while you're using the screen vs. when your phone is locked."
+                        },
+                        fontSize = 11.sp,
+                        color = ForensicsPalette.TextSecondary
                     )
                 }
             }
@@ -293,16 +550,31 @@ fun DashboardScreen(
                         .fillMaxWidth()
                         .padding(18.dp)
                 ) {
-                    Text(
-                        text = "SYSTEM STATE",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        color = ForensicsPalette.TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "LIVE PHONE STATUS",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = ForensicsPalette.TextSecondary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        )
+                        CardInfoIconButton(
+                            topicKey = "phone_status",
+                            onShowTopic = onShowTopicGuide
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         SystemStateTile(
@@ -311,15 +583,19 @@ fun DashboardScreen(
                             bgColor = ForensicsPalette.BlueSoftTile,
                             borderColor = ForensicsPalette.BlueBorder,
                             textColor = ForensicsPalette.BlueBright,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                         SystemStateTile(
-                            label = "DOZE",
+                            label = "SLEEP MODE",
                             value = snapshot.dozeState,
                             bgColor = ForensicsPalette.GraySoftTile,
                             borderColor = ForensicsPalette.GrayBorder,
                             textColor = ForensicsPalette.TextSecondary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                         SystemStateTile(
                             label = "WI-FI",
@@ -327,12 +603,16 @@ fun DashboardScreen(
                             bgColor = ForensicsPalette.GreenSoftTile,
                             borderColor = ForensicsPalette.GreenBorder,
                             textColor = ForensicsPalette.GreenPrimary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         SystemStateTile(
@@ -341,7 +621,9 @@ fun DashboardScreen(
                             bgColor = ForensicsPalette.PurpleSoftTile,
                             borderColor = ForensicsPalette.PurpleBorder,
                             textColor = ForensicsPalette.PurpleBright,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                         SystemStateTile(
                             label = "BLUETOOTH",
@@ -349,7 +631,9 @@ fun DashboardScreen(
                             bgColor = ForensicsPalette.BlueSoftTile,
                             borderColor = ForensicsPalette.BlueBorder,
                             textColor = ForensicsPalette.BlueBright,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                         SystemStateTile(
                             label = "LOCATION",
@@ -357,7 +641,9 @@ fun DashboardScreen(
                             bgColor = ForensicsPalette.AmberSoftTile,
                             borderColor = ForensicsPalette.AmberBorder,
                             textColor = ForensicsPalette.AmberPrimary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                     }
                 }
@@ -378,16 +664,20 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "ACTIVITY ESTIMATES",
+                            text = "APP & SCREEN USAGE",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
-                            color = ForensicsPalette.TextSecondary
+                            color = ForensicsPalette.TextSecondary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = "Not exact consumption",
-                            fontSize = 11.sp,
-                            color = ForensicsPalette.TextMuted
+                        CardInfoIconButton(
+                            topicKey = "insights_apps",
+                            onShowTopic = onShowTopicGuide
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -402,9 +692,9 @@ fun DashboardScreen(
                         ) {
                             Text(
                                 text = if (snapshot.usageAccessGranted) {
-                                    "Keep using your device — activity estimates will generate soon as usage data is collected."
+                                    "Keep using your phone — app usage shares will appear here automatically as you use your apps."
                                 } else {
-                                    "Keep using your device — activity data will generate soon. Grant Usage Access in Settings → Permissions for per-app activity breakdown."
+                                    "Grant Usage Access in Settings → Permissions to see which apps use the most screen and background time."
                                 },
                                 fontSize = 13.sp,
                                 color = ForensicsPalette.TextSecondary
@@ -430,7 +720,11 @@ fun DashboardScreen(
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = ForensicsPalette.TextPrimary,
-                                    modifier = Modifier.weight(1.35f)
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .weight(1.35f)
+                                        .padding(end = 8.dp)
                                 )
                                 Box(
                                     modifier = Modifier
@@ -454,6 +748,8 @@ fun DashboardScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = barColor,
                                     textAlign = TextAlign.End,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     modifier = Modifier.width(44.dp)
                                 )
                             }
@@ -464,7 +760,7 @@ fun DashboardScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Battery attribution unavailable · Activity-based estimate only",
+                        text = "Based on screen time and background app checks",
                         fontSize = 11.sp,
                         color = ForensicsPalette.TextMuted
                     )
@@ -480,13 +776,26 @@ fun DashboardScreen(
                         .fillMaxWidth()
                         .padding(18.dp)
                 ) {
-                    Text(
-                        text = "DEVICE CAPABILITIES",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        color = ForensicsPalette.TextSecondary
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "WHAT YOUR PHONE SUPPORTS",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = ForensicsPalette.TextSecondary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        )
+                        CardInfoIconButton(
+                            topicKey = "phone_capabilities",
+                            onShowTopic = onShowTopicGuide
+                        )
+                    }
                     Spacer(modifier = Modifier.height(10.dp))
                     capabilities.forEachIndexed { index, cap ->
                         Row(
@@ -497,14 +806,21 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
+                            ) {
                                 CapabilityStatusGraphicBadge(status = cap.status)
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = cap.name,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = ForensicsPalette.TextPrimary
+                                    color = ForensicsPalette.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             if (cap.rightNote != null) {
@@ -512,7 +828,9 @@ fun DashboardScreen(
                                     text = cap.rightNote,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = ForensicsPalette.TextSecondary
+                                    color = ForensicsPalette.TextSecondary,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -527,11 +845,23 @@ fun DashboardScreen(
     }
 
     if (showHealthModal) {
+        val isWarm = snapshot.temperatureCelsius >= 38.0f || snapshot.isThermalWarningActive
+        val cappedEstMah = if (snapshot.designCapacityMah > 0 && snapshot.estimatedFullCapacityMah > 0) {
+            snapshot.estimatedFullCapacityMah.coerceAtMost(snapshot.designCapacityMah)
+        } else {
+            snapshot.estimatedFullCapacityMah
+        }
+        val cycleLine = if (snapshot.isCycleCountHardwareMeasured) {
+            "${snapshot.estimatedCycleCount} full charges (Reported by phone)"
+        } else {
+            "${snapshot.estimatedCycleCount} full charges (${snapshot.cycleCountProgressPercent}% toward next cycle · ${snapshot.accumulatedChargeMah} mAh charged)"
+        }
+
         AlertDialog(
             onDismissRequest = { showHealthModal = false },
             title = {
                 Text(
-                    text = "Battery Health & Score Breakdown",
+                    text = "Battery Health & Score Details",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
@@ -539,26 +869,50 @@ fun DashboardScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = if (snapshot.healthScore > 0) {
-                            "App-Generated Health Score: ${snapshot.healthScore}/100 (Estimated)"
+                        text = if (!snapshot.isHealthScoreCalibrating && snapshot.healthScore > 0) {
+                            "Battery Health Score: ${snapshot.healthScore.coerceAtMost(100)} / 100"
                         } else {
-                            "Health Score: Calibrating — Keep using & charge your device to generate score"
+                            "Health Score: Calibrating... — ${snapshot.healthCalibrationStatusText}"
                         },
                         fontWeight = FontWeight.SemiBold,
                         color = ForensicsPalette.GreenPrimary
                     )
                     Text(
-                        text = "• Design Capacity: ${if (snapshot.designCapacityMah > 0) "${snapshot.designCapacityMah} mAh" else "Waiting for charge cycle"}\n" +
-                            "• Estimated Full Capacity: ${if (snapshot.estimatedFullCapacityMah > 0) "~${snapshot.estimatedFullCapacityMah} mAh" else "Collecting coulomb-counter data — keep using your phone"}\n" +
-                            "• Cycle Count: ${snapshot.cycleCount?.let { "$it cycles (Measured)" } ?: "Data unavailable on this device/OEM"}\n" +
-                            "• Thermal Behavior: ${snapshot.temperatureStatus} (${snapshot.temperatureCelsius}°C live)\n" +
-                            "• System Health Status: ${snapshot.healthLabel} (Measured)",
+                        text = "• Factory Capacity: ${if (snapshot.designCapacityMah > 0) "${snapshot.designCapacityMah} mAh" else "Waiting for first charge"}\n" +
+                            "• Usable Capacity: ${if (cappedEstMah > 0) "~$cappedEstMah mAh (averaged over ${snapshot.smoothedCapacitySampleCount} charges)" else "Still learning — charge your phone normally"}\n" +
+                            "• Charge Cycles: $cycleLine\n" +
+                            "• Temperature: ${snapshot.temperatureStatus} (${snapshot.temperatureCelsius}°C live)\n" +
+                            "• Battery Condition: ${snapshot.healthLabel}",
                         fontSize = 13.sp,
                         color = ForensicsPalette.TextSecondary
                     )
+                    if (isWarm) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(ForensicsPalette.AmberContainer)
+                                .border(1.dp, ForensicsPalette.AmberBorder, RoundedCornerShape(10.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text(
+                                text = "Your device is running warm, which may temporarily affect battery performance and measurement accuracy.",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = ForensicsPalette.AmberPrimary
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "Temperature is normal (< 38.0°C) — ideal for accurate battery health readings.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = ForensicsPalette.GreenPrimary
+                        )
+                    }
                     HorizontalDivider(color = ForensicsPalette.DividerColor)
                     Text(
-                        text = "Transparency Note: Calculated from coulomb-counter charge sessions (60% capacity retention + 20% thermal profile + 20% charging stability). Never presented as official manufacturer warranty health.",
+                        text = "How this works: Your score compares your battery's usable capacity against its original factory capacity across your last 5–10 charges (capped at 100%). Needs 3 full charges to finish learning.",
                         fontSize = 12.sp,
                         color = ForensicsPalette.TextMuted
                     )
@@ -708,15 +1062,20 @@ private fun GaugeStatColumn(
     ) {
         Text(
             text = value,
-            fontSize = 16.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = ForensicsPalette.TextPrimary
+            color = ForensicsPalette.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = label,
             fontSize = 11.sp,
             color = ForensicsPalette.TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
     }
@@ -732,6 +1091,7 @@ private fun MetricQuadCard(
     unit: String,
     valueColor: Color,
     subtitle: String,
+    valueFontSize: Int = 26,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -741,8 +1101,9 @@ private fun MetricQuadCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -753,7 +1114,12 @@ private fun MetricQuadCard(
                     text = title,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = ForensicsPalette.TextSecondary
+                    color = ForensicsPalette.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 6.dp)
                 )
                 ClassificationBadge(
                     text = badgeText,
@@ -766,7 +1132,7 @@ private fun MetricQuadCard(
                 text = buildAnnotatedString {
                     withStyle(
                         SpanStyle(
-                            fontSize = 26.sp,
+                            fontSize = valueFontSize.sp,
                             fontWeight = FontWeight.Bold,
                             color = valueColor
                         )
@@ -775,20 +1141,24 @@ private fun MetricQuadCard(
                     }
                     withStyle(
                         SpanStyle(
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = ForensicsPalette.TextSecondary
                         )
                     ) {
                         append(unit)
                     }
-                }
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = subtitle,
-                fontSize = 12.sp,
-                color = ForensicsPalette.TextMuted
+                fontSize = 11.sp,
+                color = ForensicsPalette.TextMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -809,22 +1179,28 @@ private fun SystemStateTile(
             .clip(shape)
             .background(bgColor)
             .border(1.dp, borderColor, shape)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(vertical = 12.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = label,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp,
-            color = textColor.copy(alpha = 0.85f)
+            letterSpacing = 0.4.sp,
+            color = textColor.copy(alpha = 0.85f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
     }

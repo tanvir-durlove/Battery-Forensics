@@ -80,7 +80,11 @@ fun AiBatteryDoctorSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                ) {
                     Text(
                         text = "AI Battery Doctor",
                         fontSize = 20.sp,
@@ -88,7 +92,7 @@ fun AiBatteryDoctorSheet(
                         color = ForensicsPalette.TextPrimary
                     )
                     Text(
-                        text = "Select a question to generate a forensic prompt with your device's battery data",
+                        text = "Pick a question below to create a ready-to-use battery summary for AI chat",
                         fontSize = 12.sp,
                         color = ForensicsPalette.TextSecondary
                     )
@@ -105,7 +109,7 @@ fun AiBatteryDoctorSheet(
             ) {
                 presetQuestions.forEachIndexed { idx, q ->
                     val isSelected = selectedQuestion == q
-                    val chipShape = RoundedCornerShape(10.dp)
+                    val chipShape = RoundedCornerShape(999.dp)
                     Box(
                         modifier = Modifier
                             .clip(chipShape)
@@ -119,7 +123,7 @@ fun AiBatteryDoctorSheet(
                                 shape = chipShape
                             )
                             .clickable { onSelectQuestion(q) }
-                            .padding(horizontal = 12.dp, vertical = 9.dp)
+                            .padding(horizontal = 14.dp, vertical = 9.dp)
                             .testTag("ai_doctor_preset_$idx")
                     ) {
                         Text(

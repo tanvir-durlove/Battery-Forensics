@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,8 +45,11 @@ import com.example.ui.ForensicsViewModel
 import com.example.ui.InsightsTimeframe
 import com.example.ui.MainTab
 import com.example.ui.components.ForensicsBottomBar
+import com.example.ui.components.ForensicsGuideAndOnboardingModal
 import com.example.ui.components.ForensicsSplashScreen
 import com.example.ui.components.ForensicsTopAppBar
+import com.example.ui.components.StatGuideTopic
+import com.example.ui.components.StatInfoBottomSheet
 import com.example.ui.screens.AiBatteryDoctorSheet
 import com.example.ui.screens.ChargingScreen
 import com.example.ui.screens.DashboardScreen
@@ -108,11 +112,15 @@ fun BatteryForensicsApp(
     val selectedAiDoctorQuestion by viewModel.selectedAiDoctorQuestion.collectAsStateWithLifecycle()
     val generatedAiDoctorPrompt by viewModel.generatedAiDoctorPrompt.collectAsStateWithLifecycle()
     val statusBannerMessage by viewModel.statusBannerMessage.collectAsStateWithLifecycle()
+    val hasSeenOnboarding by viewModel.hasSeenOnboarding.collectAsStateWithLifecycle()
 
     val activity = context as? Activity
     var showAiDoctorSheet by remember { mutableStateOf(false) }
     val isRobolectric = remember { Build.FINGERPRINT.lowercase().contains("robolectric") }
     var showSplashScreen by rememberSaveable { mutableStateOf(!isRobolectric) }
+    var showGuideModal by rememberSaveable { mutableStateOf(false) }
+    var guideModalInitialTab by rememberSaveable { mutableIntStateOf(0) }
+    var selectedStatTopic by remember { mutableStateOf<StatGuideTopic?>(null) }
 
     fun handleAiDoctorClick() {
         viewModel.requestEnterAiDoctor(
@@ -160,7 +168,11 @@ fun BatteryForensicsApp(
                 currentTab = currentTab,
                 batteryPercent = liveTelemetry.batteryPercent,
                 isAiDoctorUnlocked = isAiDoctorSessionUnlocked,
-                onOpenAiDoctor = { handleAiDoctorClick() }
+                onOpenAiDoctor = { handleAiDoctorClick() },
+                onOpenGuide = {
+                    guideModalInitialTab = 0
+                    showGuideModal = true
+                }
             )
         },
         bottomBar = {
@@ -219,7 +231,8 @@ fun BatteryForensicsApp(
                             capabilities = capabilities,
                             isHistoryEmpty = diagnosticSessions.isEmpty() && chargingSessions.isEmpty(),
                             onRefresh = { viewModel.refreshTelemetry() },
-                            onNavigateToDiagnose = { viewModel.selectTab(MainTab.DIAGNOSE) }
+                            onNavigateToDiagnose = { viewModel.selectTab(MainTab.DIAGNOSE) },
+                            onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
                     MainTab.DIAGNOSE -> {
@@ -260,7 +273,8 @@ fun BatteryForensicsApp(
                             onNavigateToAdbSettings = { viewModel.navigateToEnableAdbMode() },
                             onOpenAiDoctor = { handleAiDoctorClick() },
                             videoAd1ShownCount = videoAd1ShownCount,
-                            onTriggerVideoAd1 = { handleTriggerVideoAd1() }
+                            onTriggerVideoAd1 = { handleTriggerVideoAd1() },
+                            onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
                     MainTab.INSIGHTS -> {
@@ -274,7 +288,8 @@ fun BatteryForensicsApp(
                             dailyPoints = dailyPts,
                             monthlyPoints = monthlyPts,
                             appInsights = appActivityInsights,
-                            onInvestigateAnomaly = { viewModel.investigateThursdayAnomaly() }
+                            onInvestigateAnomaly = { viewModel.investigateThursdayAnomaly() },
+                            onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
                     MainTab.CHARGING -> {
@@ -288,7 +303,8 @@ fun BatteryForensicsApp(
                                 viewModel.createChargerProfile(name, maxW, avgW, temp)
                             },
                             isDeepBenchmarkUnlocked = isDeepBenchmarkUnlocked,
-                            onTriggerVideoAd2 = { handleTriggerVideoAd2() }
+                            onTriggerVideoAd2 = { handleTriggerVideoAd2() },
+                            onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
                     MainTab.SETTINGS -> {
@@ -314,12 +330,50 @@ fun BatteryForensicsApp(
                             onDeleteAllData = { reseed -> viewModel.deleteAllUserData(reseed) },
                             onRunConsoleCommand = { cmd -> viewModel.runConsoleCommand(cmd) },
                             onPermissionsUpdated = { viewModel.refreshTelemetry() },
-                            isExportUnlocked = isExportSessionUnlocked
+                            isExportUnlocked = isExportSessionUnlocked,
+                            onOpenOnboardingTour = {
+                                guideModalInitialTab = 0
+                                showGuideModal = true
+                            },
+                            onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
                 }
             }
         }
+    }
+
+    selectedStatTopic?.let { topic ->
+        StatInfoBottomSheet(
+            topic = topic,
+            onOpenFullGuide = {
+                selectedStatTopic = null
+                viewModel.navigateToFaqGuide()
+            },
+            onDismiss = { selectedStatTopic = null }
+        )
+    }
+
+    if (showGuideModal || (!showSplashScreen && !hasSeenOnboarding && !isRobolectric)) {
+        ForensicsGuideAndOnboardingModal(
+            initialTab = guideModalInitialTab,
+            onSelectStartingLevel = { level ->
+                if (level == 2) {
+                    viewModel.setAdbModeEnabled(true)
+                } else {
+                    viewModel.setAdbModeEnabled(false)
+                }
+            },
+            onNavigateToPermissions = {
+                viewModel.markOnboardingCompleted()
+                showGuideModal = false
+                viewModel.navigateToPermissionsSettings()
+            },
+            onDismiss = {
+                viewModel.markOnboardingCompleted()
+                showGuideModal = false
+            }
+        )
     }
 
     if (showAiDoctorSheet && isAiDoctorSessionUnlocked) {

@@ -1,12 +1,18 @@
-name: Build Android APK & Play Store AAB
+name: Build & Download Android APK
 
 on:
   push:
     branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  build-apk:
+    name: Build Installable APK
     runs-on: ubuntu-latest
 
     steps:
@@ -50,12 +56,48 @@ jobs:
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Build Debug APK (For Real Device Testing)
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Build Installable Android APK
+        run: |
+          gradle :app:assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Battery-Forensics.apk
 
-      - name: Upload Debug APK Artifact
+      - name: Upload APK to GitHub Actions Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Battery-Forensics-Test-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Battery-Forensics-APK
+          path: app/build/outputs/apk/debug/Battery-Forensics.apk
+          retention-days: 30
           if-no-files-found: error
+
+      - name: Publish Direct-Download APK to GitHub Releases (latest-apk)
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: latest-apk
+          name: "Battery Forensics — Latest APK Build"
+          body: |
+            ### 📲 Direct APK Download (Android)
+            Tap **`Battery-Forensics.apk`** under **Assets** below to download and install directly on your Android phone.
+            - **Commit:** `${{ github.sha }}`
+            - **Branch:** `${{ github.ref_name }}`
+          files: app/build/outputs/apk/debug/Battery-Forensics.apk
+          prerelease: true
+
+      - name: Write APK Download Guide to Job Summary
+        run: |
+          APK_FILE="app/build/outputs/apk/debug/Battery-Forensics.apk"
+          APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
+          APK_SHA256=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          ## ✅ Battery Forensics APK Built Successfully!
+          | Property | Value |
+          | :--- | :--- |
+          | **File Name** | \`Battery-Forensics.apk\` |
+          | **APK Size** | \`$APK_SIZE\` |
+          | **SHA-256** | \`$APK_SHA256\` |
+
+          ### 📥 How to Download & Install:
+          1. **Direct Phone Download (No Unzip Needed):** Go to your repository's **Releases** section and tap **\`Battery-Forensics.apk\`** under \`latest-apk\`.
+          2. **From GitHub Actions:** Scroll down to the **Artifacts** section at the bottom of this run summary and click **\`Battery-Forensics-APK\`**.
+          EOF

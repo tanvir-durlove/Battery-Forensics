@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
@@ -52,6 +53,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -69,24 +71,9 @@ fun ForensicsTopAppBar(
     batteryPercent: Int,
     isAiDoctorUnlocked: Boolean = false,
     onOpenAiDoctor: () -> Unit,
+    onOpenGuide: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val (badgeBg, badgeBorder, badgeTint) = when (currentTab) {
-        MainTab.HOME -> Triple(ForensicsPalette.GreenContainer, ForensicsPalette.GreenBorder, ForensicsPalette.GreenPrimary)
-        MainTab.DIAGNOSE -> Triple(ForensicsPalette.BlueContainer, ForensicsPalette.BlueBorder, ForensicsPalette.BluePrimary)
-        MainTab.INSIGHTS -> Triple(ForensicsPalette.PurpleContainer, ForensicsPalette.PurpleBorder, ForensicsPalette.PurplePrimary)
-        MainTab.CHARGING -> Triple(ForensicsPalette.AmberContainer, ForensicsPalette.AmberBorder, ForensicsPalette.AmberPrimary)
-        MainTab.SETTINGS -> Triple(ForensicsPalette.GrayContainer, ForensicsPalette.GrayBorder, ForensicsPalette.GrayPrimary)
-    }
-
-    val badgeIcon = when (currentTab) {
-        MainTab.HOME -> Icons.Filled.Home
-        MainTab.DIAGNOSE -> Icons.Filled.Search
-        MainTab.INSIGHTS -> Icons.AutoMirrored.Filled.TrendingUp
-        MainTab.CHARGING -> Icons.Filled.BatteryChargingFull
-        MainTab.SETTINGS -> Icons.Filled.Settings
-    }
-
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = ForensicsPalette.CardSurface,
@@ -100,45 +87,53 @@ fun ForensicsTopAppBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(11.dp))
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(Color(0xFF12161B))
-                            .border(1.dp, Color(0xFF2A3441), RoundedCornerShape(11.dp)),
+                            .border(1.dp, Color(0xFF2A3441), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_launcher_foreground),
                             contentDescription = "Battery Forensics Logo",
                             tint = Color.Unspecified,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(34.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Battery Forensics",
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ForensicsPalette.TextPrimary
+                        color = ForensicsPalette.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val pillShape = RoundedCornerShape(999.dp)
                     // Quick access chip for AI Battery Doctor
                     Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
+                            .clip(pillShape)
                             .background(ForensicsPalette.PurpleSoftTile)
-                            .border(1.dp, ForensicsPalette.PurpleBorder, RoundedCornerShape(50))
+                            .border(1.dp, ForensicsPalette.PurpleBorder, pillShape)
                             .clickable { onOpenAiDoctor() }
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                             .testTag("top_bar_ai_doctor_button"),
@@ -148,23 +143,25 @@ fun ForensicsTopAppBar(
                             imageVector = Icons.Filled.Psychology,
                             contentDescription = "AI Battery Doctor",
                             tint = ForensicsPalette.PurplePrimary,
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (isAiDoctorUnlocked) "AI Doctor" else "Unlock AI Doctor",
+                            text = if (isAiDoctorUnlocked) "AI Doctor" else "Ask AI",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.PurplePrimary
+                            color = ForensicsPalette.PurplePrimary,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
                     // Live Battery Icon + Percentage inside a subtle pill
                     Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
+                            .clip(pillShape)
                             .background(ForensicsPalette.GreenSoftTile)
-                            .border(1.dp, ForensicsPalette.GreenBorder, RoundedCornerShape(50))
+                            .border(1.dp, ForensicsPalette.GreenBorder, pillShape)
                             .padding(horizontal = 9.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -172,9 +169,11 @@ fun ForensicsTopAppBar(
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "$batteryPercent%",
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.GreenPrimary
+                            color = ForensicsPalette.GreenPrimary,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -328,7 +327,9 @@ fun ForensicsBottomBar(
                             text = tab.label,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = contentColor
+                            color = contentColor,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -345,11 +346,12 @@ fun ClassificationBadge(
     modifier: Modifier = Modifier
 ) {
     val borderTint = contentColor.copy(alpha = 0.24f)
+    val pillShape = RoundedCornerShape(999.dp)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(50))
+            .clip(pillShape)
             .background(containerColor)
-            .border(1.dp, borderTint, RoundedCornerShape(50))
+            .border(1.dp, borderTint, pillShape)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -357,7 +359,10 @@ fun ClassificationBadge(
             text = text,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            color = contentColor
+            color = contentColor,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -397,6 +402,7 @@ fun SegmentedPillSelector(
                         }
                     )
                     .clickable { onSelect(index) }
+                    .padding(horizontal = 6.dp)
                     .testTag("segmented_option_${label.lowercase().replace(" ", "_")}"),
                 contentAlignment = Alignment.Center
             ) {
@@ -404,7 +410,9 @@ fun SegmentedPillSelector(
                     text = label,
                     fontSize = 13.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (isSelected) activeTextColor else ForensicsPalette.TextSecondary
+                    color = if (isSelected) activeTextColor else ForensicsPalette.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

@@ -165,43 +165,108 @@ class DeviceTelemetryScanner(private val context: Context) {
         }
 
         val tempStatus = when {
-            tempCelsius <= 0f -> "Sensor waiting"
-            tempCelsius >= 38.0f -> "Elevated temperature"
-            tempCelsius <= 10.0f -> "Cool range"
-            else -> "Normal range"
+            tempCelsius <= 0f -> "Reading..."
+            tempCelsius >= 38.0f -> "Running warm"
+            tempCelsius <= 10.0f -> "Cool"
+            else -> "Normal"
+        }
+
+        val isThermalWarning = tempCelsius >= 38.0f
+        val thermalTip = if (isThermalWarning) {
+            "Your device is running warm, which may temporarily affect battery performance and measurement accuracy."
+        } else {
+            null
         }
 
         val voltageStatus = when {
-            voltageVolts <= 0f -> "Sensor waiting"
-            voltageVolts < 3.5f -> "Low voltage"
-            voltageVolts > 4.4f -> "High voltage"
-            else -> "Nominal"
+            voltageVolts <= 0f -> "Reading..."
+            voltageVolts < 3.5f -> "Low"
+            voltageVolts > 4.4f -> "High"
+            else -> "Normal"
         }
 
-        // Read real design capacity if exposed by OEM PowerProfile, otherwise estimate from coulomb counter
+        val screenOn = powerManager?.isInteractive ?: true
+        val dozeActive = powerManager?.isDeviceIdleMode ?: false
+
+        // 1. Read real design capacity if exposed by OEM PowerProfile, otherwise estimate from coulomb counter
         val realDesignMah = readDesignCapacityMah()
         val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER) ?: 0
-        val estimatedFullMah = if (chargeCounterUah > 100_000 && rawPercent >= 20) {
+        val rawSingleEstimateMah = if (chargeCounterUah > 100_000 && rawPercent >= 20) {
             val currentChargeMah = chargeCounterUah / 1000f
             ((currentChargeMah / (rawPercent / 100f)).roundToInt()).coerceIn(1000, 15000)
         } else {
             0
         }
+
         val designMah = when {
             realDesignMah > 1000 -> realDesignMah
-            estimatedFullMah > 1000 -> estimatedFullMah
+            rawSingleEstimateMah > 1000 -> rawSingleEstimateMah
             else -> 0
         }
 
-        val computedHealthScore = if (designMah > 1000 && estimatedFullMah > 1000) {
-            val ratio = (estimatedFullMah.toFloat() / designMah.toFloat()).coerceIn(0.5f, 1.0f)
-            (ratio * 100f).roundToInt().coerceIn(50, 100)
-        } else if (health == BatteryManager.BATTERY_HEALTH_GOOD) {
-            // When coulomb counter hasn't completed a full charge cycle yet, derive an initial estimate from OS health + thermals
-            0
+        // Smooth capacity over the last 5 to 10 charge observations and strictly cap at Design Capacity
+        val (smoothedEstimatedMah, sampleCount) = recordAndSmoothCapacityEstimate(
+            rawEstimateMah = rawSingleEstimateMah,
+            designCapacityMah = designMah,
+            isCharging = isCharging,
+            batteryPercent = rawPercent
+        )
+        val estimatedFullMah = if (designMah > 0 && smoothedEstimatedMah > 0) {
+            smoothedEstimatedMah.coerceAtMost(designMah)
+        } else {
+            smoothedEstimatedMah
+        }
+
+        // 4. Custom Cycle Count Fallback Tracker (tracks continuous mA over time = mAh accumulated)
+        val effectiveDesignMah = if (designMah > 1000) designMah else 4500
+        val (customCycles, cycleProgressPct, accumulatedMahInt, calibrationCycles) = updateCycleAndCalibrationTracker(
+            nowMs = nowMs,
+            isCharging = isCharging,
+            currentMa = currentMa,
+            hasRealCurrent = hasRealCurrent,
+            rawPercent = rawPercent,
+            effectiveDesignMah = effectiveDesignMah
+        )
+
+        val isHardwareCycles = cycleCountRaw > 0
+        val resolvedCycleCount = if (isHardwareCycles) cycleCountRaw else customCycles
+
+        // 2. Calibration State (Initial Learning Phase: requires 3 full charge cycles before unlocking 0-100 score)
+        val calibrationTarget = 3
+        val isCalibrating = calibrationCycles < calibrationTarget || designMah <= 1000 || estimatedFullMah <= 1000
+        val calibrationStatusText = if (calibrationCycles < calibrationTarget) {
+            "Learning your battery patterns ($calibrationCycles/$calibrationTarget charges)"
+        } else {
+            "Averaged over $sampleCount recent charges"
+        }
+
+        val computedHealthScore = if (!isCalibrating && designMah > 1000 && estimatedFullMah > 1000) {
+            val cappedEst = estimatedFullMah.coerceAtMost(designMah)
+            val retentionRatio = (cappedEst.toFloat() / designMah.toFloat()).coerceIn(0.5f, 1.0f)
+            val capacityPoints = retentionRatio * 60f
+            val thermalPoints = when {
+                tempCelsius >= 40.0f -> 12f
+                tempCelsius >= 38.0f -> 15f
+                tempCelsius >= 35.0f -> 18f
+                else -> 20f
+            }
+            val stabilityPoints = if (health == BatteryManager.BATTERY_HEALTH_GOOD) 20f else 10f
+            (capacityPoints + thermalPoints + stabilityPoints).roundToInt().coerceIn(50, 100)
         } else {
             0
         }
+
+        // 5. Real-Time Discharging Analytics & Drain Rate Monitor (Active Use vs Standby)
+        val (activeDrainPerHr, standbyDrainPerHr, liveInstantDrainPerHr, activeMins, standbyMins) =
+            updateDischargingDrainMonitor(
+                nowMs = nowMs,
+                isCharging = isCharging,
+                screenOn = screenOn,
+                rawPercent = rawPercent,
+                currentMa = currentMa,
+                hasRealCurrent = hasRealCurrent,
+                effectiveDesignMah = effectiveDesignMah
+            )
 
         // Calculate real observed drain rate if enough time has elapsed since first observation
         val initialPct = prefs.getInt("initial_battery_percent", rawPercent)
@@ -216,6 +281,7 @@ class DeviceTelemetryScanner(private val context: Context) {
                 val rate = (pctDrop / elapsedHours).coerceIn(0.1f, 40f)
                 String.format(Locale.US, "-%.1f%% / hr", rate)
             }
+            liveInstantDrainPerHr > 0f -> String.format(Locale.US, "-%.1f%% / hr", liveInstantDrainPerHr)
             hasRealCurrent && currentMa != 0 -> "${currentMa} mA live"
             else -> "Calibrating..."
         }
@@ -245,6 +311,10 @@ class DeviceTelemetryScanner(private val context: Context) {
                 val hoursLeft = (rawPercent / rate).roundToInt().coerceAtMost(99)
                 "~${hoursLeft}h"
             }
+            activeDrainPerHr > 0.2f -> {
+                val hoursLeft = (rawPercent / activeDrainPerHr).roundToInt().coerceAtMost(99)
+                "~${hoursLeft}h"
+            }
             else -> "Learning..."
         }
 
@@ -260,22 +330,19 @@ class DeviceTelemetryScanner(private val context: Context) {
             "${100 - deepSleepRatio}% active"
         }
 
-        val screenOn = powerManager?.isInteractive ?: true
-        val dozeActive = powerManager?.isDeviceIdleMode ?: false
-
         val thermalStatusLabel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && powerManager != null) {
             when (powerManager.currentThermalStatus) {
-                PowerManager.THERMAL_STATUS_NONE -> "Nominal (No throttling)"
-                PowerManager.THERMAL_STATUS_LIGHT -> "Light thermal load"
-                PowerManager.THERMAL_STATUS_MODERATE -> "Moderate thermal load"
-                PowerManager.THERMAL_STATUS_SEVERE -> "Severe (Throttling active)"
+                PowerManager.THERMAL_STATUS_NONE -> "Cool & steady"
+                PowerManager.THERMAL_STATUS_LIGHT -> "Slightly warm"
+                PowerManager.THERMAL_STATUS_MODERATE -> "Warm"
+                PowerManager.THERMAL_STATUS_SEVERE -> "Hot (Performance reduced)"
                 PowerManager.THERMAL_STATUS_CRITICAL,
                 PowerManager.THERMAL_STATUS_EMERGENCY,
-                PowerManager.THERMAL_STATUS_SHUTDOWN -> "Critical thermal warning"
-                else -> "Nominal"
+                PowerManager.THERMAL_STATUS_SHUTDOWN -> "Very hot — let phone cool"
+                else -> "Normal"
             }
         } else {
-            "Nominal"
+            "Normal"
         }
 
         // Network state
@@ -348,21 +415,21 @@ class DeviceTelemetryScanner(private val context: Context) {
             voltageClassification = if (voltageVolts > 0f) DataClassification.MEASURED else DataClassification.UNAVAILABLE,
             currentMilliAmps = currentMa,
             currentStatus = when {
-                !hasRealCurrent -> "Waiting for gauge"
+                !hasRealCurrent -> "Reading..."
                 isCharging && currentMa > 0 -> "Charging"
-                else -> "Discharging"
+                else -> "In use"
             },
             currentClassification = if (hasRealCurrent) DataClassification.MEASURED else DataClassification.DEVICE_DEPENDENT,
             healthScore = computedHealthScore,
             healthScoreClassification = DataClassification.ESTIMATED,
             designCapacityMah = designMah,
             estimatedFullCapacityMah = estimatedFullMah,
-            cycleCount = cycleCount,
+            cycleCount = resolvedCycleCount,
             isCharging = isCharging,
             chargingSource = chargingSource,
             liveChargingWatts = liveWatts,
             screenState = if (screenOn) "On" else "Off",
-            dozeState = if (dozeActive) "Deep Idle" else "Active",
+            dozeState = if (dozeActive) "Deep Sleep" else "Awake",
             wifiState = wifiStateLabel,
             mobileState = mobileStateLabel,
             bluetoothState = btStateLabel,
@@ -372,7 +439,258 @@ class DeviceTelemetryScanner(private val context: Context) {
             fineLocationGranted = fineLocGranted,
             phoneStateGranted = phoneGranted,
             bluetoothScanGranted = btScanGranted,
-            notificationsGranted = notifGranted
+            notificationsGranted = notifGranted,
+            isHealthScoreCalibrating = isCalibrating,
+            calibrationSessionsCompleted = calibrationCycles,
+            calibrationTargetSessions = calibrationTarget,
+            healthCalibrationStatusText = calibrationStatusText,
+            smoothedCapacitySampleCount = sampleCount,
+            isThermalWarningActive = isThermalWarning,
+            thermalAdvisoryTip = thermalTip,
+            isCycleCountHardwareMeasured = isHardwareCycles,
+            estimatedCycleCount = resolvedCycleCount,
+            cycleCountProgressPercent = cycleProgressPct,
+            accumulatedChargeMah = accumulatedMahInt,
+            activeDrainRatePerHr = activeDrainPerHr,
+            standbyDrainRatePerHr = standbyDrainPerHr,
+            liveInstantDrainRatePerHr = liveInstantDrainPerHr,
+            activeDischargingMinutes = activeMins,
+            standbyDischargingMinutes = standbyMins,
+            drainMonitorStatusText = when {
+                isCharging -> "Plugged in · Drain monitor paused"
+                screenOn -> "Tracking screen-on battery use"
+                else -> "Tracking screen-off standby drain"
+            }
+        )
+    }
+
+    /**
+     * Pure mathematical helper that caps any raw capacity estimate at [designCapacityMah]
+     * and computes a moving average over the last 5 to 10 charge observations.
+     */
+    fun recordAndSmoothCapacityEstimate(
+        rawEstimateMah: Int,
+        designCapacityMah: Int,
+        isCharging: Boolean,
+        batteryPercent: Int
+    ): Pair<Int, Int> {
+        val existingCsv = prefs.getString("capacity_samples_csv", "") ?: ""
+        val samples = existingCsv.split(",")
+            .mapNotNull { it.trim().toIntOrNull() }
+            .filter { it in 1000..15000 }
+            .toMutableList()
+
+        if (rawEstimateMah in 1000..15000) {
+            val cappedSample = if (designCapacityMah > 1000) {
+                rawEstimateMah.coerceAtMost(designCapacityMah)
+            } else {
+                rawEstimateMah
+            }
+            val lastRecordedPct = prefs.getInt("last_cap_sample_pct", -1)
+            // Record a new smoothing point when battery % changes by >= 2% or list is empty
+            if (samples.isEmpty() || abs(batteryPercent - lastRecordedPct) >= 2 || isCharging) {
+                if (samples.lastOrNull() != cappedSample) {
+                    samples.add(cappedSample)
+                    while (samples.size > 10) {
+                        samples.removeAt(0)
+                    }
+                    prefs.edit()
+                        .putString("capacity_samples_csv", samples.joinToString(","))
+                        .putInt("last_cap_sample_pct", batteryPercent)
+                        .apply()
+                }
+            }
+        }
+
+        if (samples.isEmpty()) {
+            val fallback = if (designCapacityMah > 1000 && rawEstimateMah > 1000) {
+                rawEstimateMah.coerceAtMost(designCapacityMah)
+            } else {
+                rawEstimateMah
+            }
+            return Pair(fallback, if (fallback > 0) 1 else 0)
+        }
+
+        // Moving average over the most recent 5 to 10 samples
+        val window = samples.takeLast(10)
+        val avgMah = window.average().roundToInt()
+        val strictlyCappedMah = if (designCapacityMah > 1000) {
+            avgMah.coerceAtMost(designCapacityMah)
+        } else {
+            avgMah
+        }
+        return Pair(strictlyCappedMah, window.size)
+    }
+
+    private data class CycleAndCalibrationResult(
+        val customCycles: Int,
+        val cycleProgressPercent: Int,
+        val accumulatedMah: Int,
+        val calibrationCycles: Int
+    )
+
+    /**
+     * Tracks continuous charging current (mA) over time (mAh accumulated) during charging
+     * and increments our persistent custom cycle counter whenever an equivalent 100% full cycle
+     * ([effectiveDesignMah]) is completed. Also tracks completed calibration cycles (target: 3-5).
+     */
+    private fun updateCycleAndCalibrationTracker(
+        nowMs: Long,
+        isCharging: Boolean,
+        currentMa: Int,
+        hasRealCurrent: Boolean,
+        rawPercent: Int,
+        effectiveDesignMah: Int
+    ): CycleAndCalibrationResult {
+        var customCycles = prefs.getInt("custom_cycle_count_int", 0)
+        var accumulatedMah = prefs.getFloat("accumulated_charge_mah_float", 0f)
+        var calibrationCycles = prefs.getInt("calibration_cycles_completed", 0)
+
+        val lastChargeMs = prefs.getLong("last_cycle_track_ms", 0L)
+        val lastChargePct = prefs.getInt("last_cycle_track_pct", rawPercent)
+        val wasCharging = prefs.getBoolean("last_cycle_was_charging", false)
+
+        if (isCharging && lastChargeMs > 0L && nowMs > lastChargeMs) {
+            val dtHours = ((nowMs - lastChargeMs) / 3_600_000f).coerceIn(0f, 4f)
+            val pctDelta = (rawPercent - lastChargePct).coerceAtLeast(0)
+
+            val deltaMahFromCurrent = if (hasRealCurrent && abs(currentMa) > 0) {
+                abs(currentMa) * dtHours
+            } else 0f
+            val deltaMahFromPercent = if (pctDelta > 0) {
+                (pctDelta / 100f) * effectiveDesignMah
+            } else 0f
+
+            val addedMah = maxOf(deltaMahFromCurrent, deltaMahFromPercent)
+            if (addedMah > 0f) {
+                accumulatedMah += addedMah
+            }
+        }
+
+        // Check if a full 100% equivalent charge cycle was completed
+        if (effectiveDesignMah > 0 && accumulatedMah >= effectiveDesignMah) {
+            val newCycles = (accumulatedMah / effectiveDesignMah).toInt()
+            customCycles += newCycles
+            calibrationCycles += newCycles
+            accumulatedMah %= effectiveDesignMah.toFloat()
+        } else if (wasCharging && !isCharging) {
+            // Also count substantial charge sessions (>= 20% gain) toward initial 3-5 session calibration
+            val sessionStartPct = prefs.getInt("charge_session_start_pct", rawPercent)
+            if (rawPercent - sessionStartPct >= 20) {
+                calibrationCycles += 1
+            }
+        }
+
+        if (isCharging && !wasCharging) {
+            prefs.edit().putInt("charge_session_start_pct", rawPercent).apply()
+        }
+
+        val progressPct = if (effectiveDesignMah > 0) {
+            ((accumulatedMah * 100f) / effectiveDesignMah).roundToInt().coerceIn(0, 99)
+        } else 0
+
+        prefs.edit()
+            .putInt("custom_cycle_count_int", customCycles)
+            .putFloat("accumulated_charge_mah_float", accumulatedMah)
+            .putInt("calibration_cycles_completed", calibrationCycles)
+            .putLong("last_cycle_track_ms", nowMs)
+            .putInt("last_cycle_track_pct", rawPercent)
+            .putBoolean("last_cycle_was_charging", isCharging)
+            .apply()
+
+        return CycleAndCalibrationResult(
+            customCycles = customCycles,
+            cycleProgressPercent = progressPct,
+            accumulatedMah = accumulatedMah.roundToInt(),
+            calibrationCycles = calibrationCycles
+        )
+    }
+
+    private data class DischargingDrainResult(
+        val activeDrainPerHr: Float,
+        val standbyDrainPerHr: Float,
+        val liveInstantDrainPerHr: Float,
+        val activeMinutes: Int,
+        val standbyMinutes: Int
+    )
+
+    /**
+     * Monitors the device while actively discharging (unplugged) and calculates average
+     * drain percentage per hour under active use (Screen ON) and standby (Screen OFF).
+     */
+    private fun updateDischargingDrainMonitor(
+        nowMs: Long,
+        isCharging: Boolean,
+        screenOn: Boolean,
+        rawPercent: Int,
+        currentMa: Int,
+        hasRealCurrent: Boolean,
+        effectiveDesignMah: Int
+    ): DischargingDrainResult {
+        var activeMs = prefs.getLong("discharge_active_ms", 0L)
+        var standbyMs = prefs.getLong("discharge_standby_ms", 0L)
+        var activePctDrop = prefs.getFloat("discharge_active_pct_drop", 0f)
+        var standbyPctDrop = prefs.getFloat("discharge_standby_pct_drop", 0f)
+
+        val lastSampleMs = prefs.getLong("discharge_last_sample_ms", 0L)
+        val lastSamplePct = prefs.getInt("discharge_last_sample_pct", rawPercent)
+        val lastWasCharging = prefs.getBoolean("discharge_last_was_charging", isCharging)
+
+        val liveInstantRate = if (!isCharging && hasRealCurrent && abs(currentMa) > 0 && effectiveDesignMah > 0) {
+            (((abs(currentMa).toFloat() / effectiveDesignMah.toFloat()) * 100f) * 10f).roundToInt() / 10f
+        } else {
+            0f
+        }
+
+        if (!isCharging && !lastWasCharging && lastSampleMs > 0L && nowMs > lastSampleMs) {
+            val dtMs = (nowMs - lastSampleMs).coerceAtMost(30 * 60_000L)
+            val dtHours = dtMs / 3_600_000f
+            val rawDrop = (lastSamplePct - rawPercent).coerceAtLeast(0).toFloat()
+            val coulombDropPct = if (liveInstantRate > 0f) liveInstantRate * dtHours else 0f
+            val effectiveDropPct = if (rawDrop > 0f) rawDrop else coulombDropPct
+
+            if (screenOn) {
+                activeMs += dtMs
+                activePctDrop += effectiveDropPct
+            } else {
+                standbyMs += dtMs
+                standbyPctDrop += effectiveDropPct
+            }
+        }
+
+        prefs.edit()
+            .putLong("discharge_active_ms", activeMs)
+            .putLong("discharge_standby_ms", standbyMs)
+            .putFloat("discharge_active_pct_drop", activePctDrop)
+            .putFloat("discharge_standby_pct_drop", standbyPctDrop)
+            .putLong("discharge_last_sample_ms", nowMs)
+            .putInt("discharge_last_sample_pct", rawPercent)
+            .putBoolean("discharge_last_was_charging", isCharging)
+            .apply()
+
+        val activeHours = activeMs / 3_600_000f
+        val standbyHours = standbyMs / 3_600_000f
+
+        val computedActiveRate = when {
+            activeHours >= 0.05f && activePctDrop > 0f ->
+                (((activePctDrop / activeHours).coerceIn(0.1f, 60f)) * 10f).roundToInt() / 10f
+            !isCharging && screenOn && liveInstantRate > 0f -> liveInstantRate
+            else -> 0f
+        }
+
+        val computedStandbyRate = when {
+            standbyHours >= 0.05f && standbyPctDrop > 0f ->
+                (((standbyPctDrop / standbyHours).coerceIn(0.1f, 30f)) * 10f).roundToInt() / 10f
+            !isCharging && !screenOn && liveInstantRate > 0f -> liveInstantRate
+            else -> 0f
+        }
+
+        return DischargingDrainResult(
+            activeDrainPerHr = computedActiveRate,
+            standbyDrainPerHr = computedStandbyRate,
+            liveInstantDrainPerHr = liveInstantRate,
+            activeMinutes = (activeMs / 60_000L).toInt(),
+            standbyMinutes = (standbyMs / 60_000L).toInt()
         )
     }
 
@@ -408,60 +726,68 @@ class DeviceTelemetryScanner(private val context: Context) {
         return listOf(
             CapabilityItem(
                 id = "battery_level_current",
-                name = "Battery level & current",
+                name = "Battery level & power flow",
                 status = if (snapshot.currentClassification == DataClassification.MEASURED) {
                     CapabilityStatus.SUPPORTED
                 } else {
                     CapabilityStatus.ESTIMATED_OR_LIMITED
                 },
-                rightNote = if (snapshot.currentClassification == DataClassification.MEASURED) null else "Level only",
-                detailExplanation = "Direct hardware gauge access via BatteryManager.BATTERY_PROPERTY_CURRENT_NOW and Sticky Intent."
+                rightNote = if (snapshot.currentClassification == DataClassification.MEASURED) "Live" else "Level only",
+                detailExplanation = "Reads your live battery percentage and charging or drain speed directly from your phone's battery sensor."
             ),
             CapabilityItem(
                 id = "temp_voltage",
-                name = "Temperature & voltage",
+                name = "Temperature & power stability",
                 status = CapabilityStatus.SUPPORTED,
-                rightNote = null,
-                detailExplanation = "Thermistor temperature (${snapshot.temperatureCelsius}°C) and cell voltage (${snapshot.voltageVolts}V) measured directly."
+                rightNote = "Live",
+                detailExplanation = "Reads your battery's live temperature (${snapshot.temperatureCelsius}°C) and power stability (${snapshot.voltageVolts}V) directly from built-in sensors."
             ),
             CapabilityItem(
                 id = "usage_stats",
-                name = "Usage statistics",
+                name = "App screen & background time",
                 status = if (snapshot.usageAccessGranted) CapabilityStatus.SUPPORTED else CapabilityStatus.ESTIMATED_OR_LIMITED,
-                rightNote = if (snapshot.usageAccessGranted) "Granted" else "Permission needed",
-                detailExplanation = "Foreground time, app launch events, and standby bucket transitions via UsageStatsManager."
+                rightNote = if (snapshot.usageAccessGranted) "Enabled" else "Permission needed",
+                detailExplanation = "Shows how long each app stays open on screen and how often apps wake up in the background."
             ),
             CapabilityItem(
                 id = "doze_idle",
-                name = "Doze / idle state",
+                name = "Sleep mode detection",
                 status = CapabilityStatus.SUPPORTED,
-                rightNote = null,
-                detailExplanation = "Device idle mode and light/deep Doze transitions observed via PowerManager.isDeviceIdleMode."
+                rightNote = "Live",
+                detailExplanation = "Checks whether your phone rests properly in deep sleep when the screen is locked."
             ),
             CapabilityItem(
                 id = "battery_capacity",
-                name = "Battery capacity",
+                name = "Usable battery capacity",
                 status = CapabilityStatus.ESTIMATED_OR_LIMITED,
-                rightNote = if (snapshot.estimatedFullCapacityMah > 0) "Estimated" else "Calibrating",
+                rightNote = if (snapshot.estimatedFullCapacityMah > 0) "Smoothed" else "Learning",
                 detailExplanation = if (snapshot.estimatedFullCapacityMah > 0) {
-                    "Derived from coulomb counter charge delta (~${snapshot.estimatedFullCapacityMah} mAh). Never presented as official OEM figure."
+                    "Averaged across ${snapshot.smoothedCapacitySampleCount} recent charges (~${snapshot.estimatedFullCapacityMah} mAh out of ${snapshot.designCapacityMah} mAh factory capacity)."
                 } else {
-                    "Requires charge cycle observation via coulomb counter. Keep using and charge your device to generate an estimate."
+                    "Learns your battery's real capacity as you charge your phone over a few sessions."
                 }
             ),
             CapabilityItem(
                 id = "cycle_count",
-                name = "Cycle count",
-                status = if (snapshot.cycleCount != null) CapabilityStatus.SUPPORTED else CapabilityStatus.UNAVAILABLE,
-                rightNote = if (snapshot.cycleCount != null) "${snapshot.cycleCount} cycles" else "Not exposed by OEM",
-                detailExplanation = "Android 14+ EXTRA_CYCLE_COUNT is optional for OEMs; unavailable when kernel driver omits cycle register."
+                name = "Full charge cycles",
+                status = if (snapshot.isCycleCountHardwareMeasured) CapabilityStatus.SUPPORTED else CapabilityStatus.ESTIMATED_OR_LIMITED,
+                rightNote = if (snapshot.isCycleCountHardwareMeasured) {
+                    "${snapshot.estimatedCycleCount} cycles"
+                } else {
+                    "${snapshot.estimatedCycleCount} est. (${snapshot.cycleCountProgressPercent}%)"
+                },
+                detailExplanation = if (snapshot.isCycleCountHardwareMeasured) {
+                    "Reported directly by your phone's built-in charge counter."
+                } else {
+                    "Your phone maker hides the factory cycle counter, so the app tracks your charging progress (${snapshot.accumulatedChargeMah} mAh charged toward the next full 100% cycle)."
+                }
             ),
             CapabilityItem(
                 id = "system_wakelocks",
-                name = "System wakelocks",
+                name = "Deep background wakeups",
                 status = if (adbModeEnabled) CapabilityStatus.SUPPORTED else CapabilityStatus.UNAVAILABLE,
                 rightNote = if (adbModeEnabled) "ADB-derived" else "ADB mode required",
-                detailExplanation = "Third-party apps cannot read kernel or system-wide partial wakelocks in Standard Mode without ADB BATTERY_STATS permission."
+                detailExplanation = "Android blocks regular apps from seeing hidden system wakeups unless Advanced ADB Mode is turned on."
             )
         )
     }
@@ -475,50 +801,50 @@ class DeviceTelemetryScanner(private val context: Context) {
                 manufacturer = "Samsung",
                 model = model,
                 osSkinLabel = "One UI (Android $rel)",
-                batterySubsystemNotes = "Samsung One UI uses Device Care 'Sleeping Apps' & 'Deep Sleeping Apps' lists alongside standard Android Doze.",
+                batterySubsystemNotes = "Samsung One UI includes 'Sleeping Apps' and 'Deep Sleeping Apps' lists to stop unused apps from draining battery in the background.",
                 oemSettingsGuidance = listOf(
-                    "Check Settings → Battery → Background usage limits for apps with high screen-off wake indicators.",
-                    "Review 'Adaptive Battery' rather than using third-party task killers."
+                    "Open Settings → Battery → Background usage limits to put high-drain apps to sleep.",
+                    "Keep 'Adaptive Battery' turned on instead of using third-party booster apps."
                 )
             )
             mfr.contains("oneplus") || mfr.contains("oppo") || mfr.contains("realme") -> ManufacturerProfileInfo(
                 manufacturer = Build.MANUFACTURER ?: "OnePlus",
                 model = model,
                 osSkinLabel = "OxygenOS / ColorOS (Android $rel)",
-                batterySubsystemNotes = "Dual-cell fast-charge architecture reports single-cell equivalent voltage; wattage requires current × dual-cell factor.",
+                batterySubsystemNotes = "Uses fast dual-cell charging to fill the battery quickly while keeping heat lower at the charger.",
                 oemSettingsGuidance = listOf(
-                    "Review Settings → Battery → More settings → Optimize battery use per app.",
-                    "Check Auto-launch permissions for apps showing elevated overnight wakeups."
+                    "Open Settings → Battery → More settings → Optimize battery use for apps that run often.",
+                    "Turn off Auto-launch for apps that wake your phone overnight."
                 )
             )
             mfr.contains("xiaomi") || mfr.contains("redmi") || mfr.contains("poco") -> ManufacturerProfileInfo(
                 manufacturer = Build.MANUFACTURER ?: "Xiaomi",
                 model = model,
                 osSkinLabel = "HyperOS / MIUI (Android $rel)",
-                batterySubsystemNotes = "HyperOS manages background autostart independently of standard Android standby buckets.",
+                batterySubsystemNotes = "Includes a separate Background Autostart setting that controls which apps can restart themselves.",
                 oemSettingsGuidance = listOf(
-                    "Inspect Settings → Apps → Permissions → Background autostart for persistent background contributors."
+                    "Open Settings → Apps → Permissions → Background autostart and turn off apps you don't need running all night."
                 )
             )
             mfr.contains("google") || model.lowercase(Locale.getDefault()).contains("pixel") -> ManufacturerProfileInfo(
                 manufacturer = "Google",
                 model = model,
                 osSkinLabel = "Pixel Android $rel",
-                batterySubsystemNotes = "Pixel power rails expose coulomb counter current (µA) and thermistor readings, while kernel wakelocks require ADB.",
+                batterySubsystemNotes = "Provides live battery speed and temperature readings directly from your phone's sensors.",
                 oemSettingsGuidance = listOf(
-                    "Settings → Battery → Battery Usage → Select app → Toggle 'Allow background usage' to Restricted if evidence shows excessive screen-off events.",
-                    "Settings → Network & internet → SIMs → Preferred network type (test LTE vs 5G if weak 5G signal correlates with drain).",
-                    "Settings → Battery → Adaptive Charging helps keep sustained charging temperatures below 32°C."
+                    "Settings → Battery → Battery Usage → Tap an app → Set to 'Restricted' if it drains battery while your screen is off.",
+                    "Settings → Network & internet → SIMs → Preferred network type (switch to LTE if weak 5G signal is draining your battery).",
+                    "Settings → Battery → Adaptive Charging helps keep your battery cool during overnight charging."
                 )
             )
             else -> ManufacturerProfileInfo(
-                manufacturer = Build.MANUFACTURER?.replaceFirstChar { it.uppercase() } ?: "Android OEM",
+                manufacturer = Build.MANUFACTURER?.replaceFirstChar { it.uppercase() } ?: "Android Phone",
                 model = model,
                 osSkinLabel = "Android $rel",
-                batterySubsystemNotes = "Standard Android BatteryManager & UsageStats telemetry active. Kernel-level wakelock inspection requires ADB mode.",
+                batterySubsystemNotes = "Live battery sensors and app usage tracking are active on this device.",
                 oemSettingsGuidance = listOf(
-                    "Settings → Apps → Select high-activity app → Battery → Set to 'Restricted' if background wakeups persist.",
-                    "Settings → Battery → Adaptive Battery helps limit background wakeups for infrequently used apps."
+                    "Settings → Apps → Select a high-drain app → Battery → Set to 'Restricted' to stop background drain.",
+                    "Settings → Battery → Adaptive Battery helps limit background drain from apps you rarely open."
                 )
             )
         }

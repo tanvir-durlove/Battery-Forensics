@@ -89,7 +89,28 @@ data class LiveTelemetrySnapshot(
     val fineLocationGranted: Boolean,
     val phoneStateGranted: Boolean,
     val bluetoothScanGranted: Boolean,
-    val notificationsGranted: Boolean
+    val notificationsGranted: Boolean,
+    // 1 & 2. Calibration & Smoothed Capacity State
+    val isHealthScoreCalibrating: Boolean = true,
+    val calibrationSessionsCompleted: Int = 0,
+    val calibrationTargetSessions: Int = 3,
+    val healthCalibrationStatusText: String = "Learning your battery patterns",
+    val smoothedCapacitySampleCount: Int = 0,
+    // 3. Thermal Warning System (>= 38.0°C)
+    val isThermalWarningActive: Boolean = false,
+    val thermalAdvisoryTip: String? = null,
+    // 4. Custom Cycle Count Fallback Tracker
+    val isCycleCountHardwareMeasured: Boolean = false,
+    val estimatedCycleCount: Int = 0,
+    val cycleCountProgressPercent: Int = 0,
+    val accumulatedChargeMah: Int = 0,
+    // 5. Real-Time Battery Drain Rate Monitor (Active Use vs Standby)
+    val activeDrainRatePerHr: Float = 0f,
+    val standbyDrainRatePerHr: Float = 0f,
+    val liveInstantDrainRatePerHr: Float = 0f,
+    val activeDischargingMinutes: Int = 0,
+    val standbyDischargingMinutes: Int = 0,
+    val drainMonitorStatusText: String = "Monitoring active & standby discharge"
 )
 
 data class ActivityEstimateItem(

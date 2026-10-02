@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -48,15 +49,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AppActivityInsight
 import com.example.data.DayDrainPoint
 import com.example.ui.InsightsTimeframe
+import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
+import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -70,6 +74,7 @@ fun InsightsScreen(
     monthlyPoints: List<DayDrainPoint>,
     appInsights: List<AppActivityInsight>,
     onInvestigateAnomaly: () -> Unit,
+    onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val activePoints = when (timeframe) {
@@ -98,7 +103,7 @@ fun InsightsScreen(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Trends, patterns and anomaly detection.",
+                text = "Daily trends, usage patterns, and unusual drain alerts.",
                 fontSize = 13.sp,
                 color = ForensicsPalette.TextSecondary
             )
@@ -167,7 +172,7 @@ fun InsightsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp)
+                            .padding(16.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -176,9 +181,14 @@ fun InsightsScreen(
                         ) {
                             Text(
                                 text = "Building Your Battery Baseline",
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ForensicsPalette.BluePrimary
+                                color = ForensicsPalette.BluePrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
                             )
                             ClassificationBadge(
                                 text = "Data collection in progress",
@@ -188,7 +198,7 @@ fun InsightsScreen(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Keep using your phone normally — daily and weekly drain trends, overnight comparisons, and anomaly alerts will generate soon as battery data is recorded.",
+                            text = "Keep using your phone normally — daily and weekly drain trends, overnight comparisons, and unusual drain alerts will appear here soon.",
                             fontSize = 13.sp,
                             color = ForensicsPalette.TextPrimary
                         )
@@ -266,8 +276,8 @@ fun InsightsScreen(
                             )
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            LegendDotRow(color = ForensicsPalette.BlueChartLine, label = "Normal")
-                            LegendDotRow(color = ForensicsPalette.TemperatureOrange, label = "Anomaly")
+                            LegendDotRow(color = ForensicsPalette.BlueChartLine, label = "Usual")
+                            LegendDotRow(color = ForensicsPalette.TemperatureOrange, label = "High Drain")
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -310,35 +320,43 @@ fun InsightsScreen(
             } else "—"
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 InsightMetricBox(
                     label = "AVG DRAIN",
                     value = avgDrainStr,
-                    sub = if (activePoints.isNotEmpty()) "per session" else "generating",
+                    sub = if (activePoints.isNotEmpty()) "per session" else "learning",
                     bgColor = ForensicsPalette.BlueContainer,
                     borderColor = ForensicsPalette.BlueBorder,
                     textColor = ForensicsPalette.BluePrimary,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
                 InsightMetricBox(
-                    label = "SCREEN AVG",
+                    label = "SCREEN TIME",
                     value = screenAvgStr,
-                    sub = if (activePoints.isNotEmpty()) "per day" else "generating",
+                    sub = if (activePoints.isNotEmpty()) "per day" else "learning",
                     bgColor = ForensicsPalette.PurpleContainer,
                     borderColor = ForensicsPalette.PurpleBorder,
                     textColor = ForensicsPalette.PurplePrimary,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
                 InsightMetricBox(
-                    label = "IDLE DRAIN",
+                    label = "STANDBY DRAIN",
                     value = idleAvgStr,
-                    sub = if (activePoints.isNotEmpty()) "per hour" else "generating",
+                    sub = if (activePoints.isNotEmpty()) "per hour" else "learning",
                     bgColor = ForensicsPalette.GreenContainer,
                     borderColor = ForensicsPalette.GreenBorder,
                     textColor = ForensicsPalette.GreenPrimary,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
             }
         }
@@ -352,14 +370,26 @@ fun InsightsScreen(
                         .padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "BASELINE COMPARISON",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        color = ForensicsPalette.TextSecondary,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "BASELINE COMPARISON",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = ForensicsPalette.TextSecondary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        )
+                        CardInfoIconButton(
+                            topicKey = "insights_trends",
+                            onShowTopic = onShowTopicGuide
+                        )
+                    }
                     Spacer(modifier = Modifier.height(14.dp))
                     if (weeklyPoints.size < 2) {
                         Box(
@@ -389,13 +419,16 @@ fun InsightsScreen(
                         }
                         val boxShape = RoundedCornerShape(16.dp)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Max),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .fillMaxHeight()
                                     .clip(boxShape)
                                     .background(ForensicsPalette.GreenSoftTile)
                                     .border(1.dp, ForensicsPalette.GreenBorder, boxShape)
@@ -403,18 +436,22 @@ fun InsightsScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "RECORDED BASELINE",
+                                    text = "USUAL DRAIN",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp,
-                                    color = ForensicsPalette.GreenPrimary
+                                    color = ForensicsPalette.GreenPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = baselineLabel,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.GreenPrimary
+                                    color = ForensicsPalette.GreenPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             Text(
@@ -426,6 +463,7 @@ fun InsightsScreen(
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .fillMaxHeight()
                                     .clip(boxShape)
                                     .background(ForensicsPalette.AmberContainer)
                                     .border(1.dp, ForensicsPalette.AmberBorder, boxShape)
@@ -437,14 +475,18 @@ fun InsightsScreen(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp,
-                                    color = ForensicsPalette.AmberPrimary
+                                    color = ForensicsPalette.AmberPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "${latest.drainPercent}%",
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (latest.isAnomaly) ForensicsPalette.RedPrimary else ForensicsPalette.TextPrimary
+                                    color = if (latest.isAnomaly) ForensicsPalette.RedPrimary else ForensicsPalette.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -472,13 +514,25 @@ fun InsightsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "APP ACTIVITY",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
-                            color = ForensicsPalette.TextSecondary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        ) {
+                            Text(
+                                text = "APP ACTIVITY",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
+                                color = ForensicsPalette.TextSecondary
+                            )
+                            CardInfoIconButton(
+                                topicKey = "insights_apps",
+                                onShowTopic = onShowTopicGuide
+                            )
+                        }
                         Text(
                             text = "Activity indicators",
                             fontSize = 11.sp,
@@ -527,7 +581,9 @@ fun InsightsScreen(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 10.dp)
                                 ) {
                                     val avatarShape = RoundedCornerShape(10.dp)
                                     Box(
@@ -546,13 +602,16 @@ fun InsightsScreen(
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
                                                 text = app.appName,
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = ForensicsPalette.TextPrimary
+                                                color = ForensicsPalette.TextPrimary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false)
                                             )
                                             if (app.hasLocationBadge) {
                                                 Spacer(modifier = Modifier.width(8.dp))
@@ -568,7 +627,9 @@ fun InsightsScreen(
                                             text = "${app.foregroundDurationLabel} · ${app.backgroundEventsCount} events",
                                             fontSize = 12.sp,
                                             fontFamily = FontFamily.Monospace,
-                                            color = ForensicsPalette.TextSecondary
+                                            color = ForensicsPalette.TextSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -585,7 +646,7 @@ fun InsightsScreen(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Battery attribution unavailable · Measured via Android UsageStatsManager",
+                        text = "Shows screen time and background activity (Android hides exact per-app battery %)",
                         fontSize = 11.sp,
                         color = ForensicsPalette.TextMuted
                     )
@@ -660,32 +721,32 @@ fun InsightsScreen(
     selectedApp?.let { app ->
         AlertDialog(
             onDismissRequest = { selectedApp = null },
-            title = { Text("${app.appName} — Forensic Activity", fontWeight = FontWeight.Bold) },
+            title = { Text("${app.appName} — Activity Summary", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Package: ${app.packageName}",
+                        text = "App ID: ${app.packageName}",
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         color = ForensicsPalette.TextMuted
                     )
                     Text(
-                        text = "• Foreground / Screen-on Duration: ${app.foregroundDurationLabel}\n" +
-                            "• Usage / Activity Events: ${app.backgroundEventsCount} events\n" +
-                            "• Activity Impact Classification: ${app.impactLevel}",
+                        text = "• Screen-on time: ${app.foregroundDurationLabel}\n" +
+                            "• Background activity: ${app.backgroundEventsCount} times\n" +
+                            "• Estimated battery impact: ${app.impactLevel}",
                         fontSize = 13.sp,
                         color = ForensicsPalette.TextPrimary
                     )
                     if (app.updateCorrelationNote != null) {
                         Text(
-                            text = "App Update Correlation: ${app.updateCorrelationNote}",
+                            text = "Recent Update Note: ${app.updateCorrelationNote}",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = ForensicsPalette.AmberPrimary
                         )
                     }
                     Text(
-                        text = "Limitation: Exact per-app mAh battery attribution is unavailable on this device in Standard Mode.",
+                        text = "Note: Android does not share exact per-app battery percentage with standard apps.",
                         fontSize = 11.sp,
                         color = ForensicsPalette.TextMuted
                     )
@@ -872,28 +933,35 @@ private fun InsightMetricBox(
             .background(bgColor)
             .border(1.dp, borderColor, shape)
             .padding(vertical = 14.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = label,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp,
-            color = textColor
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = textColor
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = sub,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = textColor.copy(alpha = 0.8f)
+            color = textColor.copy(alpha = 0.8f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

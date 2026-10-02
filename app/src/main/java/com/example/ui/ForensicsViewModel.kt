@@ -74,7 +74,8 @@ enum class SettingsSection(val label: String) {
     PERMISSIONS("Permissions"),
     PRIVACY("Privacy"),
     ALERTS("Alerts"),
-    ADVANCED("Advanced")
+    ADVANCED("Advanced"),
+    FAQ("FAQ & Guide")
 }
 
 enum class AlertSensitivity(val label: String) {
@@ -125,6 +126,9 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     val settingsSection: StateFlow<SettingsSection> = _settingsSection.asStateFlow()
 
     // Persisted Settings & Privacy flags
+    private val _hasSeenOnboarding = MutableStateFlow(prefs.getBoolean("has_seen_dark_svg_onboarding_v5", false))
+    val hasSeenOnboarding: StateFlow<Boolean> = _hasSeenOnboarding.asStateFlow()
+
     private val _adbModeEnabled = MutableStateFlow(prefs.getBoolean("adb_mode", false))
     val adbModeEnabled: StateFlow<Boolean> = _adbModeEnabled.asStateFlow()
 
@@ -368,16 +372,16 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
                     endBatteryPercent = event.batteryPercent,
                     multiplierVsNormal = multiplier,
                     overallConfidence = "Measured",
-                    primaryTitle = "Active System & Screen State",
+                    primaryTitle = "Screen & Wi-Fi Activity",
                     primarySubtitle = "Screen ${snap.screenState} · Wi-Fi ${snap.wifiState}",
                     primaryConfidence = "Measured",
-                    secondaryTitle = "Cellular & Radio State",
+                    secondaryTitle = "Mobile Network & Bluetooth",
                     secondarySubtitle = "${snap.mobileState} · Bluetooth ${snap.bluetoothState}",
                     secondaryConfidence = "Measured",
-                    factorTitle = "Thermal & Voltage Telemetry",
+                    factorTitle = "Temperature & Voltage",
                     factorSubtitle = "${event.temperatureCelsius}°C · ${event.voltageVolts}V",
                     factorConfidence = "Measured",
-                    possibleTitle = "Location Subsystem",
+                    possibleTitle = "Location Services",
                     possibleSubtitle = "Location ${snap.locationState}",
                     possibleConfidence = "Possible",
                     screenOffDuration = if (snap.screenState == "OFF") durationLabel else "0m",
@@ -473,6 +477,21 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         _currentTab.value = MainTab.SETTINGS
     }
 
+    fun navigateToPermissionsSettings() {
+        _settingsSection.value = SettingsSection.PERMISSIONS
+        _currentTab.value = MainTab.SETTINGS
+    }
+
+    fun navigateToFaqGuide() {
+        _settingsSection.value = SettingsSection.FAQ
+        _currentTab.value = MainTab.SETTINGS
+    }
+
+    fun markOnboardingCompleted() {
+        _hasSeenOnboarding.value = true
+        prefs.edit().putBoolean("has_seen_dark_svg_onboarding_v5", true).apply()
+    }
+
     fun setAdbModeEnabled(enabled: Boolean) {
         _adbModeEnabled.value = enabled
         prefs.edit().putBoolean("adb_mode", enabled).apply()
@@ -531,15 +550,15 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             ),
             EvidenceChainStep(
                 stepOrder = 3,
-                observation = "Device showed ${session.awakeDuration} of awake/activity time",
+                observation = "Phone stayed awake for ${session.awakeDuration} while screen was off",
                 classification = DataClassification.MEASURED,
-                timestampOrDuration = "Off-screen wake residency"
+                timestampOrDuration = "Background wake time"
             ),
             EvidenceChainStep(
                 stepOrder = 4,
                 observation = "${session.primaryTitle}: ${session.primarySubtitle}",
                 classification = DataClassification.MEASURED,
-                timestampOrDuration = "Synchronized activity bursts"
+                timestampOrDuration = "Matching background activity"
             ),
             EvidenceChainStep(
                 stepOrder = 5,
@@ -549,9 +568,9 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             ),
             EvidenceChainStep(
                 stepOrder = 6,
-                observation = "Finding: ${session.primaryTitle} is a measurable primary contributor · Confidence: ${session.overallConfidence}",
+                observation = "Summary: ${session.primaryTitle} is the main cause · Confidence: ${session.overallConfidence}",
                 classification = DataClassification.MEASURED,
-                timestampOrDuration = "${session.drainRatePerHr}%/hr vs ${session.normalDrainRatePerHr}%/hr normal"
+                timestampOrDuration = "${session.drainRatePerHr}%/hr vs ${session.normalDrainRatePerHr}%/hr usual"
             )
         )
     }
