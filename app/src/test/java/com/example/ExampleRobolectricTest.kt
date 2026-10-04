@@ -475,6 +475,17 @@ class ExampleRobolectricTest {
         composeTestRule.onNodeWithTag("onboarding_start_diagnostics_button").performClick()
         composeTestRule.waitForIdle()
 
+        // Verify tapping Privacy in Settings opens the Google Play Privacy Policy screen directly
+        composeTestRule.onNodeWithTag("settings_screen").performScrollToIndex(0)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("settings_nav_privacy").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("privacy_policy_screen").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Privacy Policy").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("copy_privacy_policy_button").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("privacy_policy_back_button").performClick()
+        composeTestRule.waitForIdle()
+
         // 6. Click Unlock AI Doctor in top bar -> unlocks directly without middle popup modal and opens AI Doctor sheet
         assertEquals("ca-app-pub-3940256099942544/5224354917", com.example.data.RewardedAdManager.TEST_REWARDED_AD_UNIT_ID)
         assertEquals("ca-app-pub-3940256099942544~3347511713", com.example.data.RewardedAdManager.TEST_ADMOB_APP_ID)

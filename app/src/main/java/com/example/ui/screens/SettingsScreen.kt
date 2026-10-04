@@ -91,6 +91,7 @@ fun SettingsScreen(
     onPermissionsUpdated: () -> Unit,
     isExportUnlocked: Boolean = false,
     onOpenOnboardingTour: () -> Unit = {},
+    onOpenPrivacyPolicy: () -> Unit = {},
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -157,7 +158,10 @@ fun SettingsScreen(
                         activeTextColor = ForensicsPalette.PurplePrimary,
                         iconAccent = ForensicsPalette.PurplePrimary,
                         iconBg = ForensicsPalette.PurpleSoftTile,
-                        onClick = { onSelectSection(SettingsSection.PRIVACY) },
+                        onClick = {
+                            onSelectSection(SettingsSection.PRIVACY)
+                            onOpenPrivacyPolicy()
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -611,6 +615,59 @@ fun SettingsScreen(
                                         color = ForensicsPalette.TextSecondary
                                     )
                                 }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+
+                // Official Privacy Policy Card (Google Play Compliance)
+                item {
+                    ForensicsCard(containerColor = ForensicsPalette.CardSurface) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Google Play Privacy Policy",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.TextPrimary
+                                )
+                                ClassificationBadge(
+                                    text = "Official",
+                                    containerColor = ForensicsPalette.BlueContainer,
+                                    contentColor = ForensicsPalette.BluePrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Review our comprehensive, Play Store-compliant privacy disclosures covering permissions, local SQLite data storage, and Google AdMob.",
+                                fontSize = 12.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                lineHeight = 17.sp
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = onOpenPrivacyPolicy,
+                                colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("open_privacy_policy_button")
+                            ) {
+                                Text(
+                                    text = "View Full Privacy Policy →",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
                             }
                         }
                     }

@@ -55,6 +55,7 @@ import com.example.ui.screens.ChargingScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.DiagnoseScreen
 import com.example.ui.screens.InsightsScreen
+import com.example.ui.screens.PrivacyPolicyScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.ForensicsPalette
 import com.example.ui.theme.MyApplicationTheme
@@ -119,6 +120,7 @@ fun BatteryForensicsApp(
     val isRobolectric = remember { Build.FINGERPRINT.lowercase().contains("robolectric") }
     var showSplashScreen by rememberSaveable { mutableStateOf(!isRobolectric) }
     var showGuideModal by rememberSaveable { mutableStateOf(false) }
+    var showPrivacyPolicyScreen by rememberSaveable { mutableStateOf(false) }
     var guideModalInitialTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedStatTopic by remember { mutableStateOf<StatGuideTopic?>(null) }
 
@@ -335,6 +337,9 @@ fun BatteryForensicsApp(
                                 guideModalInitialTab = 0
                                 showGuideModal = true
                             },
+                            onOpenPrivacyPolicy = {
+                                showPrivacyPolicyScreen = true
+                            },
                             onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
@@ -383,6 +388,12 @@ fun BatteryForensicsApp(
             onSelectQuestion = { viewModel.generateDynamicPromptForQuestion(it) },
             onPromptCopied = { viewModel.notifyPromptCopied() },
             onDismiss = { showAiDoctorSheet = false }
+        )
+    }
+
+    if (showPrivacyPolicyScreen) {
+        PrivacyPolicyScreen(
+            onNavigateBack = { showPrivacyPolicyScreen = false }
         )
     }
 
