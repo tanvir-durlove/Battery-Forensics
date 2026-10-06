@@ -92,6 +92,7 @@ fun SettingsScreen(
     isExportUnlocked: Boolean = false,
     onOpenOnboardingTour: () -> Unit = {},
     onOpenPrivacyPolicy: () -> Unit = {},
+    onOpenGitHubBuild: () -> Unit = {},
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -988,6 +989,59 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+
+                // GitHub Actions APK Build & Download Card
+                item {
+                    ForensicsCard(containerColor = ForensicsPalette.CardSurface) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "GitHub APK Builder & CI/CD",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.TextPrimary
+                                )
+                                ClassificationBadge(
+                                    text = "Automated",
+                                    containerColor = ForensicsPalette.GreenContainer,
+                                    contentColor = ForensicsPalette.GreenPrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Build and download the installable Android APK in the cloud using GitHub Actions with zero local SDK installation.",
+                                fontSize = 12.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                lineHeight = 17.sp
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = onOpenGitHubBuild,
+                                colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.GreenPrimary),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("open_github_build_button")
+                            ) {
+                                Text(
+                                    text = "Build APK on GitHub →",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
 
                 // Footer App Identity Card (Screenshot 11)
