@@ -59,6 +59,7 @@ import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.DiagnosticTestGraphicIcon
 import com.example.ui.components.ForensicsCard
+import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
 import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
@@ -163,6 +164,14 @@ fun DiagnoseScreen(
                     )
                 },
                 activeTextColor = ForensicsPalette.BluePrimary
+            )
+        }
+
+        // Native Ad Card (Above the Fold — Top of Diagnose Tab)
+        item {
+            InlineForensicsAdBannerCard(
+                placementLabel = "Hardware Diagnostics",
+                tagName = "diagnose_inline_ad_card"
             )
         }
 

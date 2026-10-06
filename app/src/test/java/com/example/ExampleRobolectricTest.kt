@@ -393,9 +393,14 @@ class ExampleRobolectricTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("diagnose_screen").assertIsDisplayed()
         composeTestRule.onNodeWithText("Drain Detective").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("diagnose_inline_ad_card").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("diagnose_screen").performScrollToIndex(3)
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("diagnose_data_collection_card").assertIsDisplayed()
 
         // Switch to Tests & Experiments sub-tab
+        composeTestRule.onNodeWithTag("diagnose_screen").performScrollToIndex(1)
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("segmented_option_tests_&_experiments").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Idle Test").assertIsDisplayed()

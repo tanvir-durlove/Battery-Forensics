@@ -459,7 +459,6 @@ fun InlineForensicsAdBannerCard(
     tagName: String,
     modifier: Modifier = Modifier
 ) {
-    val isEmulator = RewardedAdManager.isVirtualOrEmulatorDevice()
     ForensicsCard(
         modifier = modifier.testTag(tagName),
         containerColor = ForensicsPalette.CardSurface
@@ -497,41 +496,43 @@ fun InlineForensicsAdBannerCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (!isEmulator) {
+            if (!RewardedAdManager.isRobolectricTest()) {
                 AndroidView(
                     modifier = Modifier.fillMaxWidth(),
                     factory = { ctx ->
                         AdView(ctx).apply {
                             setAdSize(AdSize.BANNER)
                             adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
+                            adListener = object : com.google.android.gms.ads.AdListener() {
+                                override fun onAdFailedToLoad(loadAdError: com.google.android.gms.ads.LoadAdError) {
+                                    if (loadAdError.code == com.google.android.gms.ads.AdRequest.ERROR_CODE_NO_FILL) {
+                                        post {
+                                            try {
+                                                adUnitId = RewardedAdManager.GOOGLE_SAMPLE_BANNER_ID
+                                                loadAd(AdRequest.Builder().build())
+                                            } catch (_: Throwable) {}
+                                        }
+                                    }
+                                }
+                            }
                             loadAd(AdRequest.Builder().build())
                         }
                     }
                 )
             } else {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(ForensicsPalette.SubtleSurface)
-                        .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(ForensicsPalette.SubtleSurface),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "USB-C PD 100W E-Marker Cable Tester",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ForensicsPalette.TextPrimary
-                        )
-                        Text(
-                            text = "Measure live adapter ripple & PD negotiation · AdMob Test Unit",
-                            fontSize = 11.sp,
-                            color = ForensicsPalette.TextSecondary
-                        )
-                    }
+                    Text(
+                        text = "Google AdMob Active Banner",
+                        fontSize = 12.sp,
+                        color = ForensicsPalette.TextSecondary
+                    )
                 }
             }
         }

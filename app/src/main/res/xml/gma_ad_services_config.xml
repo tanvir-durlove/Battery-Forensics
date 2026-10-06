@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ad-services-config>
+    <attribution allowAdPartners="false" allowAllToAttr="false" />
+    <topics allowAdPartners="false" allowAllToTopics="false" />
+    <protected-audience allowAdPartners="false" allowAllToCustomAudiences="false" />
+</ad-services-config>

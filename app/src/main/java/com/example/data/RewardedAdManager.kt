@@ -144,6 +144,12 @@ class RewardedAdManager(context: Context) {
         const val REWARDED_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-7794111343358988/3306377034"
         const val BANNER_AD_UNIT_ID = "ca-app-pub-7794111343358988/5962575944"
 
+        // Official Google Sample Ad Units (always return live test ads from Google servers)
+        const val GOOGLE_SAMPLE_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
+        const val GOOGLE_SAMPLE_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
+        const val GOOGLE_SAMPLE_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
+        const val GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/5354046379"
+
         // Compatibility constants for test suites and legacy references
         const val TEST_ADMOB_APP_ID = ADMOB_APP_ID
         const val TEST_REWARDED_AD_UNIT_ID = REWARDED_AD_UNIT_ID
@@ -181,20 +187,20 @@ class RewardedAdManager(context: Context) {
 
         try {
             MobileAds.initialize(appContext) {
-                loadRewardedAd()
-                loadInterstitialVideoAd()
-                loadRewardedInterstitialVideoAd()
+                try { loadRewardedAd() } catch (_: Throwable) {}
+                try { loadInterstitialVideoAd() } catch (_: Throwable) {}
+                try { loadRewardedInterstitialVideoAd() } catch (_: Throwable) {}
             }
-            loadRewardedAd()
-            loadInterstitialVideoAd()
-            loadRewardedInterstitialVideoAd()
+            try { loadRewardedAd() } catch (_: Throwable) {}
+            try { loadInterstitialVideoAd() } catch (_: Throwable) {}
+            try { loadRewardedInterstitialVideoAd() } catch (_: Throwable) {}
         } catch (_: Throwable) {
             _adState.value = RewardedAdState.FALLBACK_TEST_READY
         }
     }
 
-    fun loadRewardedAd() {
-        if (isVirtualOrEmulatorDevice()) {
+    fun loadRewardedAd(unitId: String = TEST_REWARDED_AD_UNIT_ID) {
+        if (isRobolectricTest()) {
             _adState.value = RewardedAdState.READY
             return
         }
@@ -205,7 +211,7 @@ class RewardedAdManager(context: Context) {
             val adRequest = AdRequest.Builder().build()
             RewardedAd.load(
                 appContext,
-                TEST_REWARDED_AD_UNIT_ID,
+                unitId,
                 adRequest,
                 object : RewardedAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedAd) {
@@ -217,7 +223,11 @@ class RewardedAdManager(context: Context) {
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         rewardedAd = null
                         isLoadingAd = false
-                        _adState.value = RewardedAdState.FALLBACK_TEST_READY
+                        if (unitId != GOOGLE_SAMPLE_REWARDED_ID && loadAdError.code == AdRequest.ERROR_CODE_NO_FILL) {
+                            loadRewardedAd(GOOGLE_SAMPLE_REWARDED_ID)
+                        } else {
+                            _adState.value = RewardedAdState.FALLBACK_TEST_READY
+                        }
                     }
                 }
             )
@@ -228,13 +238,13 @@ class RewardedAdManager(context: Context) {
         }
     }
 
-    fun loadInterstitialVideoAd() {
-        if (isVirtualOrEmulatorDevice() || interstitialVideoAd != null) return
+    fun loadInterstitialVideoAd(unitId: String = TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID) {
+        if (isRobolectricTest() || interstitialVideoAd != null) return
         try {
             val adRequest = AdRequest.Builder().build()
             InterstitialAd.load(
                 appContext,
-                TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID,
+                unitId,
                 adRequest,
                 object : InterstitialAdLoadCallback() {
                     override fun onAdLoaded(ad: InterstitialAd) {
@@ -243,6 +253,9 @@ class RewardedAdManager(context: Context) {
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         interstitialVideoAd = null
+                        if (unitId != GOOGLE_SAMPLE_INTERSTITIAL_ID && loadAdError.code == AdRequest.ERROR_CODE_NO_FILL) {
+                            loadInterstitialVideoAd(GOOGLE_SAMPLE_INTERSTITIAL_ID)
+                        }
                     }
                 }
             )
@@ -251,13 +264,13 @@ class RewardedAdManager(context: Context) {
         }
     }
 
-    fun loadRewardedInterstitialVideoAd() {
-        if (isVirtualOrEmulatorDevice() || rewardedInterstitialVideoAd != null) return
+    fun loadRewardedInterstitialVideoAd(unitId: String = TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID) {
+        if (isRobolectricTest() || rewardedInterstitialVideoAd != null) return
         try {
             val adRequest = AdRequest.Builder().build()
             RewardedInterstitialAd.load(
                 appContext,
-                TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID,
+                unitId,
                 adRequest,
                 object : RewardedInterstitialAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedInterstitialAd) {
@@ -266,6 +279,9 @@ class RewardedAdManager(context: Context) {
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         rewardedInterstitialVideoAd = null
+                        if (unitId != GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID && loadAdError.code == AdRequest.ERROR_CODE_NO_FILL) {
+                            loadRewardedInterstitialVideoAd(GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID)
+                        }
                     }
                 }
             )

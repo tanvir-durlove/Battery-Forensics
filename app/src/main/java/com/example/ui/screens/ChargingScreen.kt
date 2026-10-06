@@ -57,6 +57,7 @@ import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ChargerPlugGraphicIcon
 import com.example.ui.components.ClassificationBadge
 import com.example.ui.components.ForensicsCard
+import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
 import com.example.ui.components.StatGuideTopic
 import com.example.ui.theme.ForensicsPalette
@@ -235,6 +236,14 @@ fun ChargingScreen(
                     onSelectSubTab(target)
                 },
                 activeTextColor = ForensicsPalette.AmberPrimary
+            )
+        }
+
+        // Native Ad Card (Above the Fold — Top of Charging Tab)
+        item {
+            InlineForensicsAdBannerCard(
+                placementLabel = "Fast Charging & Safety",
+                tagName = "charging_inline_ad_card"
             )
         }
 
