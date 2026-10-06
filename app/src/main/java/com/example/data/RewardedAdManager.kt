@@ -119,12 +119,12 @@ object AiDoctorSessionManager {
 }
 
 /**
- * Manages Google AdMob Ads across all app placements using Google's official Test IDs:
- * - Official Test App ID: ca-app-pub-3940256099942544~3347511713
- * - Official Test Rewarded Video Ad Unit ID: ca-app-pub-3940256099942544/5224354917
- * - Official Test Interstitial Video Ad Unit ID (Video Ad #1): ca-app-pub-3940256099942544/8691691433
- * - Official Test Rewarded Interstitial Video Ad Unit ID (Video Ad #2): ca-app-pub-3940256099942544/5354046379
- * - Official Test Inline Native/Banner Ad Unit ID: ca-app-pub-3940256099942544/6300978111
+ * Manages Google AdMob Ads across all app placements using production Ad Unit IDs:
+ * - AdMob App ID: ca-app-pub-7794111343358988~5759501161
+ * - Rewarded Ad ID (AI Doctor & Export): ca-app-pub-7794111343358988/5415781037
+ * - Interstitial Ad ID (Diagnostic Test): ca-app-pub-7794111343358988/7732707201
+ * - Rewarded Interstitial ID (Charging Benchmark): ca-app-pub-7794111343358988/3306377034
+ * - Top Inline Ad ID (Home & Insights): ca-app-pub-7794111343358988/5962575944
  */
 class RewardedAdManager(context: Context) {
 
@@ -138,45 +138,25 @@ class RewardedAdManager(context: Context) {
     val adState: StateFlow<RewardedAdState> = _adState.asStateFlow()
 
     companion object {
-        const val TEST_ADMOB_APP_ID = "ca-app-pub-3940256099942544~3347511713"
-        const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
-        const val TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/8691691433"
-        const val TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/5354046379"
-        const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+        const val ADMOB_APP_ID = "ca-app-pub-7794111343358988~5759501161"
+        const val REWARDED_AD_UNIT_ID = "ca-app-pub-7794111343358988/5415781037"
+        const val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-7794111343358988/7732707201"
+        const val REWARDED_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-7794111343358988/3306377034"
+        const val BANNER_AD_UNIT_ID = "ca-app-pub-7794111343358988/5962575944"
+
+        // Compatibility constants for test suites and legacy references
+        const val TEST_ADMOB_APP_ID = ADMOB_APP_ID
+        const val TEST_REWARDED_AD_UNIT_ID = REWARDED_AD_UNIT_ID
+        const val TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID = INTERSTITIAL_AD_UNIT_ID
+        const val TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID = REWARDED_INTERSTITIAL_AD_UNIT_ID
+        const val TEST_BANNER_AD_UNIT_ID = BANNER_AD_UNIT_ID
+
+        fun isRobolectricTest(): Boolean {
+            return Build.FINGERPRINT.contains("robolectric", ignoreCase = true)
+        }
 
         fun isVirtualOrEmulatorDevice(): Boolean {
-            val fingerprint = Build.FINGERPRINT.lowercase()
-            val model = Build.MODEL.lowercase()
-            val manufacturer = Build.MANUFACTURER.lowercase()
-            val brand = Build.BRAND.lowercase()
-            val device = Build.DEVICE.lowercase()
-            val product = Build.PRODUCT.lowercase()
-            val hardware = Build.HARDWARE.lowercase()
-            val hasX86Abi = Build.SUPPORTED_ABIS.any { it.lowercase().contains("x86") }
-
-            return hasX86Abi ||
-                fingerprint.startsWith("generic") ||
-                fingerprint.startsWith("unknown") ||
-                fingerprint.contains("emulator") ||
-                fingerprint.contains("sdk_gphone") ||
-                fingerprint.contains("cuttlefish") ||
-                fingerprint.contains("vsoc") ||
-                model.contains("cuttlefish") ||
-                model.contains("google_sdk") ||
-                model.contains("emulator") ||
-                model.contains("android sdk built for") ||
-                model.contains("sdk_gphone") ||
-                manufacturer.contains("genymotion") ||
-                (brand.startsWith("generic") && device.startsWith("generic")) ||
-                product.contains("sdk_gphone") ||
-                product.contains("emulator") ||
-                product.contains("simulator") ||
-                product.contains("cuttlefish") ||
-                product.contains("vsoc") ||
-                hardware.contains("goldfish") ||
-                hardware.contains("ranchu") ||
-                hardware.contains("cuttlefish") ||
-                hardware.contains("vsoc")
+            return isRobolectricTest()
         }
     }
 
@@ -348,8 +328,10 @@ class RewardedAdManager(context: Context) {
             rewardedAd = null
             currentAd.show(activity, listener)
         } else if (onShowInteractiveTestAd != null) {
+            loadRewardedAd()
             onShowInteractiveTestAd()
         } else {
+            loadRewardedAd()
             listener.onUserEarnedReward(object : RewardItem {
                 override fun getAmount(): Int = 1
                 override fun getType(): String = rewardType
@@ -385,6 +367,7 @@ class RewardedAdManager(context: Context) {
             interstitialVideoAd = null
             currentInterstitial.show(activity)
         } else {
+            loadInterstitialVideoAd()
             AiDoctorSessionManager.recordVideoAd1Completed()
             onAdCompleted()
         }
@@ -419,6 +402,7 @@ class RewardedAdManager(context: Context) {
                 onBenchmarkUnlocked()
             }
         } else {
+            loadRewardedInterstitialVideoAd()
             AiDoctorSessionManager.unlockDeepBenchmarkForCurrentSession()
             onBenchmarkUnlocked()
         }

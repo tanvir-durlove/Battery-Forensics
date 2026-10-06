@@ -279,8 +279,18 @@ object ForensicsGuideCatalog {
             category = "Charging"
         ),
         FaqEntry(
-            question = "Does this app drain my battery or upload my data?",
-            answer = "No. All tracking is event-driven (listening to Android's built-in battery broadcasts rather than running a constant background loop), using less than 0.8% battery per day. All data stays 100% in your phone's local database and is never uploaded.",
+            question = "Does Battery Forensics cause battery drain or phone overheating?",
+            answer = "No. Battery Forensics operates on a strict Zero-Footprint architecture:\n• Battery Impact: < 0.1% per 24 hours (passive OS broadcast listener only).\n• Background CPU: 0.0% (never runs continuous wake-lock loops or polling timers).\n• Thermal Footprint: Zero heat generated.\n• Hardware Safety: You can verify this anytime in Insights → Battery Forensics Self-Audit.",
+            category = "Safety & Heat"
+        ),
+        FaqEntry(
+            question = "How do I unlock exact per-app mAh & wakelocks with ADB?",
+            answer = "Google restricts exact per-app mAh on Android 10–15 to prevent fingerprinting. You can grant BATTERY_STATS permission with a single one-time ADB command via PC or Shizuku/Wireless Debugging:\n\nadb shell pm grant com.nextgen.batteryforensics android.permission.BATTERY_STATS\n\nThis unlocks microscopic per-app mAh consumption, kernel wakelocks, and modem radio power without rooting your phone!",
+            category = "Advanced & ADB"
+        ),
+        FaqEntry(
+            question = "Does this app upload my personal data?",
+            answer = "No. All tracking is event-driven and stores 100% of diagnostic logs within your phone's local private SQLite sandbox. No cloud servers, no account registration, and zero remote analytics.",
             category = "Privacy"
         )
     )

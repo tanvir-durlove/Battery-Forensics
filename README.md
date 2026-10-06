@@ -27,3 +27,12 @@ Whenever you push this repository to GitHub, the included GitHub Actions workflo
 - **Smart Custom Cycle Counter**: Automatically tracks accumulated charge (`mAh`) and increments cycles when hardware cycle counts are hidden by the device manufacturer.
 - **38°C Live Thermal Guard**: Highlights temperatures above `38.0°C` and warns when heat may impact performance or charging speed.
 - **Drain Detective & Contextual `(i)` Guides**: Breaks down active vs. standby drain (`%/hr`), app wakeups, and charging taper behavior, with subtle `(i)` icons explaining what every statistic measured.
+
+---
+
+## 📜 Legal & Developer Information
+- **Developer / Company:** NextGen Tool
+- **Contact Email:** [nextgentoolbd@gmail.com](mailto:nextgentoolbd@gmail.com)
+- **Privacy Policy:** [PRIVACY_POLICY.md](PRIVACY_POLICY.md) or live on GitHub Pages (`docs/index.html`)
+- **Terms & Conditions:** [TERMS_AND_CONDITIONS.md](TERMS_AND_CONDITIONS.md)
+

@@ -13,6 +13,14 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- Optional ADB Developer Permissions for Advanced Battery & Wakelock Diagnostics -->
+    <uses-permission
+        android:name="android.permission.BATTERY_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Optional Runtime Permissions for Enhanced Forensics -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -52,10 +60,10 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Official Google AdMob Test App ID (Replace with production ID before Play Store release) -->
+        <!-- Google AdMob Application ID (NextGen Tool) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-7794111343358988~5759501161" />
         <meta-data
             android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
             android:value="true" />

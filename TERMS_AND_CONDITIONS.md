@@ -4,7 +4,8 @@
 **Last Updated:** October 4, 2026  
 **Application Name:** Battery Forensics  
 **Package Name:** `com.nextgen.batteryforensics`  
-**Developer Contact:** [durlovetanvir@gmail.com](mailto:durlovetanvir@gmail.com)  
+**Developer / Company:** NextGen Tool  
+**Contact Email:** [nextgentoolbd@gmail.com](mailto:nextgentoolbd@gmail.com)  
 
 ---
 
@@ -97,5 +98,6 @@ We reserve the right to update or modify these Terms at any time. When changes a
 
 If you have any questions or inquiries regarding these Terms and Conditions, please contact us:
 
-* **Email:** [durlovetanvir@gmail.com](mailto:durlovetanvir@gmail.com)  
+* **Developer / Company:** NextGen Tool
+* **Email:** [nextgentoolbd@gmail.com](mailto:nextgentoolbd@gmail.com)  
 * **Application:** Battery Forensics (`com.nextgen.batteryforensics`)

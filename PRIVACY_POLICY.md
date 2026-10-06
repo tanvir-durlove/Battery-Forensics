@@ -4,7 +4,8 @@
 **Last Updated:** October 4, 2026  
 **Application Name:** Battery Forensics  
 **Package Name:** `com.nextgen.batteryforensics`  
-**Developer Contact:** [durlovetanvir@gmail.com](mailto:durlovetanvir@gmail.com)  
+**Developer / Company:** NextGen Tool  
+**Contact Email:** [nextgentoolbd@gmail.com](mailto:nextgentoolbd@gmail.com)  
 
 ---
 
@@ -109,7 +110,7 @@ You have complete control over your data:
 
 ## 8. Children's Privacy
 
-Battery Forensics is a general utility diagnostic tool and is **not directed at children under the age of 13** (or the applicable minimum age in your jurisdiction). We do not knowingly collect personal identifiable information from children. If you believe that a child has provided us with personal information, please contact us at [durlovetanvir@gmail.com](mailto:durlovetanvir@gmail.com) so that we can take appropriate measures.
+Battery Forensics is a general utility diagnostic tool and is **not directed at children under the age of 13** (or the applicable minimum age in your jurisdiction). We do not knowingly collect personal identifiable information from children. If you believe that a child has provided us with personal information, please contact us at [nextgentoolbd@gmail.com](mailto:nextgentoolbd@gmail.com) so that we can take appropriate measures.
 
 ---
 
@@ -127,8 +128,9 @@ We may update this Privacy Policy from time to time to reflect changes in our ap
 
 ## 11. Contact Us
 
-If you have any questions, feedback, or concerns regarding this Privacy Policy, please contact the developer:
+If you have any questions, feedback, or concerns regarding this Privacy Policy, please contact:
 
-* **Developer Email:** [durlovetanvir@gmail.com](mailto:durlovetanvir@gmail.com)  
+* **Developer / Company:** NextGen Tool
+* **Contact Email:** [nextgentoolbd@gmail.com](mailto:nextgentoolbd@gmail.com)  
 * **Application:** Battery Forensics (`com.nextgen.batteryforensics`)  
 * **Google Play Store Developer Console ID:** Available on the Google Play Store listing page.

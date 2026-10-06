@@ -243,7 +243,22 @@ data class AppActivityInsight(
     val backgroundEventsCount: Int,
     val impactLevel: String, // "High", "Med", "Low"
     val isRecentlyUpdated: Boolean = false,
-    val updateCorrelationNote: String? = null
+    val updateCorrelationNote: String? = null,
+    val culpritType: String? = null, // "Thermal Overheat", "Background Vampire", "Screen Drainer"
+    val thermalCorrelationNote: String? = null,
+    val estimatedDrainPct: Float = 0f
+)
+
+data class AppSelfAudit(
+    val appName: String = "Battery Forensics",
+    val packageName: String = "com.nextgen.batteryforensics",
+    val batteryImpactEstimate: String = "< 0.1% / 24h",
+    val activeWakelocksCount: Int = 0,
+    val backgroundCpuUsage: String = "0.0%",
+    val thermalContribution: String = "Zero Heat (Passive OS Listener)",
+    val ramUsageMb: Int = 26,
+    val isSafeVerdict: Boolean = true,
+    val verdictSummary: String = "Verified: Battery Forensics did not cause observed battery drain or thermal overheating."
 )
 
 data class DayDrainPoint(

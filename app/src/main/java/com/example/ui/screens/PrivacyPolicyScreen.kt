@@ -77,7 +77,7 @@ fun PrivacyPolicyScreen(
 # Privacy Policy — Battery Forensics
 **Effective Date:** October 4, 2026
 **Application:** Battery Forensics (Package: com.nextgen.batteryforensics)
-**Developer:** NextGen Diagnostics Team (Contact: durlovetanvir@gmail.com)
+**Developer:** NextGen Tool (Contact: nextgentoolbd@gmail.com)
 
 ---
 
@@ -142,7 +142,7 @@ Battery Forensics is a general-utility diagnostics tool that does not knowingly 
 
 ### 7. Changes & Contact
 We may periodically update this policy to reflect new Android OS capabilities. Any revisions will be reflected in-app with an updated Effective Date.
-For inquiries, please contact: durlovetanvir@gmail.com
+For inquiries, please contact: nextgentoolbd@gmail.com
         """.trimIndent()
     }
 
@@ -392,7 +392,7 @@ For inquiries, please contact: durlovetanvir@gmail.com
                         id = 5,
                         title = "6. Developer Contact & Revisions",
                         summary = "How to reach the developer regarding privacy concerns.",
-                        body = "If you have questions or feedback concerning this Privacy Policy, please contact:\n\nDeveloper: NextGen Diagnostics Team\nEmail: durlovetanvir@gmail.com\nPackage: com.nextgen.batteryforensics\nEffective Date: October 4, 2026"
+                        body = "If you have questions or feedback concerning this Privacy Policy, please contact:\n\nDeveloper: NextGen Tool\nEmail: nextgentoolbd@gmail.com\nPackage: com.nextgen.batteryforensics\nEffective Date: October 4, 2026"
                     )
                 )
 

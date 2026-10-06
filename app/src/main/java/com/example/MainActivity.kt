@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.BatteryTrackingReceiver
+import com.example.data.AppSelfAudit
 import com.example.ui.ForensicsViewModel
 import com.example.ui.InsightsTimeframe
 import com.example.ui.MainTab
@@ -87,6 +88,8 @@ fun BatteryForensicsApp(
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val activityEstimates by viewModel.activityEstimates.collectAsStateWithLifecycle()
     val appActivityInsights by viewModel.appActivityInsights.collectAsStateWithLifecycle()
+    val appSelfAudit by viewModel.appSelfAudit.collectAsStateWithLifecycle()
+    val isAdbBatteryStatsGranted by viewModel.isAdbBatteryStatsGranted.collectAsStateWithLifecycle()
     val diagnosticSessions by viewModel.diagnosticSessions.collectAsStateWithLifecycle()
     val selectedSessionId by viewModel.selectedSessionId.collectAsStateWithLifecycle()
     val showEvidenceChain by viewModel.showEvidenceChainExpanded.collectAsStateWithLifecycle()
@@ -291,7 +294,10 @@ fun BatteryForensicsApp(
                             monthlyPoints = monthlyPts,
                             appInsights = appActivityInsights,
                             onInvestigateAnomaly = { viewModel.investigateThursdayAnomaly() },
-                            onShowTopicGuide = { selectedStatTopic = it }
+                            onShowTopicGuide = { selectedStatTopic = it },
+                            appSelfAudit = appSelfAudit,
+                            isAdbBatteryStatsGranted = isAdbBatteryStatsGranted,
+                            onRefreshAdbState = { viewModel.refreshTelemetry() }
                         )
                     }
                     MainTab.CHARGING -> {

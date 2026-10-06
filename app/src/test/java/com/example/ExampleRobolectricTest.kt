@@ -335,9 +335,9 @@ class ExampleRobolectricTest {
         assertEquals(1, adTriggeredCount)
 
         // 5. Verify Video Ad #1 (Diagnostic Lab Interstitial Video), Video Ad #2 (Charging Benchmark), and Export Rewarded Ad #2
-        assertEquals("ca-app-pub-3940256099942544/8691691433", com.example.data.RewardedAdManager.TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID)
-        assertEquals("ca-app-pub-3940256099942544/5354046379", com.example.data.RewardedAdManager.TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID)
-        assertEquals("ca-app-pub-3940256099942544/6300978111", com.example.data.RewardedAdManager.TEST_BANNER_AD_UNIT_ID)
+        assertEquals("ca-app-pub-7794111343358988/7732707201", com.example.data.RewardedAdManager.TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID)
+        assertEquals("ca-app-pub-7794111343358988/3306377034", com.example.data.RewardedAdManager.TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID)
+        assertEquals("ca-app-pub-7794111343358988/5962575944", com.example.data.RewardedAdManager.TEST_BANNER_AD_UNIT_ID)
 
         assertFalse(vm.isExportSessionUnlocked.value)
         assertTrue(vm.onExportRewardAdEarnedCallback())
@@ -418,7 +418,29 @@ class ExampleRobolectricTest {
         composeTestRule.onNodeWithTag("segmented_option_week").performClick()
         composeTestRule.waitForIdle()
 
-        // Click "Investigate ->" on Anomaly Card -> should navigate to Diagnose tab
+        // Verify Deep BATTERY_STATS ADB reminder card and copy action
+        composeTestRule.onNodeWithTag("insights_screen").performScrollToIndex(6)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("insights_adb_reminder_card").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("insights_copy_adb_cmd_button").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("insights_adb_guide_button").assertExists()
+
+        // Verify Thermal & Battery Drain Culprits Card and Self-Audit Card
+        composeTestRule.onNodeWithTag("insights_screen").performScrollToIndex(7)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("insights_culprits_card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("OVERHEAT & DRAIN CULPRITS").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("insights_screen").performScrollToIndex(8)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("insights_self_audit_card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("BATTERY FORENSICS SELF-AUDIT").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Verified: 0% Heat").assertIsDisplayed()
+
+        // Scroll back up and click "Investigate ->" on Anomaly Card -> should navigate to Diagnose tab
+        composeTestRule.onNodeWithTag("insights_screen").performScrollToIndex(1)
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("investigate_anomaly_button").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("diagnose_screen").assertIsDisplayed()
@@ -487,8 +509,8 @@ class ExampleRobolectricTest {
         composeTestRule.waitForIdle()
 
         // 6. Click Unlock AI Doctor in top bar -> unlocks directly without middle popup modal and opens AI Doctor sheet
-        assertEquals("ca-app-pub-3940256099942544/5224354917", com.example.data.RewardedAdManager.TEST_REWARDED_AD_UNIT_ID)
-        assertEquals("ca-app-pub-3940256099942544~3347511713", com.example.data.RewardedAdManager.TEST_ADMOB_APP_ID)
+        assertEquals("ca-app-pub-7794111343358988/5415781037", com.example.data.RewardedAdManager.TEST_REWARDED_AD_UNIT_ID)
+        assertEquals("ca-app-pub-7794111343358988~5759501161", com.example.data.RewardedAdManager.TEST_ADMOB_APP_ID)
         assertFalse(com.example.data.AiDoctorSessionManager.isUnlocked.value)
         composeTestRule.onNodeWithTag("top_bar_ai_doctor_button").performClick()
         composeTestRule.waitForIdle()

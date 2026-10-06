@@ -11,6 +11,7 @@ import com.example.data.AiBatteryDoctorClient
 import com.example.data.AiDoctorExchange
 import com.example.data.AiDoctorSessionManager
 import com.example.data.AppActivityInsight
+import com.example.data.AppSelfAudit
 import com.example.data.CapabilityItem
 import com.example.data.ChargerProfileEntity
 import com.example.data.ChargingSessionEntity
@@ -172,6 +173,11 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _activityEstimates = MutableStateFlow(scanner.queryRealActivityEstimates(_appActivityInsights.value))
     val activityEstimates: StateFlow<List<ActivityEstimateItem>> = _activityEstimates.asStateFlow()
+
+    val appSelfAudit: StateFlow<AppSelfAudit> = MutableStateFlow(scanner.getAppSelfAudit()).asStateFlow()
+
+    private val _isAdbBatteryStatsGranted = MutableStateFlow(scanner.isAdbBatteryStatsGranted())
+    val isAdbBatteryStatsGranted: StateFlow<Boolean> = _isAdbBatteryStatsGranted.asStateFlow()
 
     // Room Flows
     val diagnosticSessions: StateFlow<List<DiagnosticSessionEntity>> = repository.diagnosticSessions
@@ -430,6 +436,7 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         val realApps = scanner.queryRealAppActivityInsights()
         _appActivityInsights.value = realApps
         _activityEstimates.value = scanner.queryRealActivityEstimates(realApps)
+        _isAdbBatteryStatsGranted.value = scanner.isAdbBatteryStatsGranted()
     }
 
     fun selectTab(tab: MainTab) {

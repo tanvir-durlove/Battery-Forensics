@@ -503,7 +503,7 @@ fun InlineForensicsAdBannerCard(
                     factory = { ctx ->
                         AdView(ctx).apply {
                             setAdSize(AdSize.BANNER)
-                            adUnitId = RewardedAdManager.TEST_BANNER_AD_UNIT_ID
+                            adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
                             loadAd(AdRequest.Builder().build())
                         }
                     }
