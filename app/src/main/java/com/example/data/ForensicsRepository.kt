@@ -1,9 +1,23 @@
 package com.example.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 
-class ForensicsRepository(private val dao: ForensicsDao) {
+class ForensicsRepository(
+    private val dao: ForensicsDao,
+    private val scanner: DeviceTelemetryScanner? = null
+) {
+
+    companion object {
+        val DEMO_SESSION_IDS = setOf("last_night", "tuesday_night", "monday_night", "sunday_night")
+    }
+
+    private val _isDemoData = MutableStateFlow(true)
+    val isDemoData: StateFlow<Boolean> = _isDemoData.asStateFlow()
+    val isDemoDataValue: Boolean get() = _isDemoData.value
 
     val diagnosticSessions: Flow<List<DiagnosticSessionEntity>> = dao.getAllDiagnosticSessions()
     val allTimelineEvents: Flow<List<TimelineEventEntity>> = dao.getAllTimelineEvents()
@@ -14,14 +28,31 @@ class ForensicsRepository(private val dao: ForensicsDao) {
     fun getTimelineForSession(sessionId: String): Flow<List<TimelineEventEntity>> =
         dao.getTimelineEventsForSession(sessionId)
 
+    /**
+     * Queries real per-app activity insights.
+     * When Usage Access (PACKAGE_USAGE_STATS) is NOT granted, does NOT return sample apps.
+     * Returns an empty list plus a flag needsUsagePermission = true.
+     */
+    fun queryRealAppActivityInsights(customScanner: DeviceTelemetryScanner? = null): AppActivityInsightsResult {
+        val activeScanner = customScanner ?: scanner
+        return if (activeScanner == null || !activeScanner.isUsageAccessGranted()) {
+            AppActivityInsightsResult(items = emptyList(), needsUsagePermission = true)
+        } else {
+            activeScanner.queryRealAppActivityInsightsResult()
+        }
+    }
+
     suspend fun ensureSeeded() {
         val currentSessions = dao.getAllDiagnosticSessions().first()
         if (currentSessions.isEmpty()) {
             seedDefaultData()
+        } else {
+            _isDemoData.value = currentSessions.any { it.id in DEMO_SESSION_IDS || it.overallConfidence.contains("Demo", ignoreCase = true) }
         }
     }
 
     suspend fun seedDefaultData() {
+        _isDemoData.value = true
         val now = System.currentTimeMillis()
         val sessions = listOf(
             DiagnosticSessionEntity(
@@ -36,7 +67,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 startBatteryPercent = 67,
                 endBatteryPercent = 53,
                 multiplierVsNormal = 2.3f,
-                overallConfidence = "Strong Evidence",
+                overallConfidence = "Demo",
                 primaryTitle = "Elevated Background Activity",
                 primarySubtitle = "Instagram · 47 background events",
                 primaryConfidence = "Strong Evidence",
@@ -68,16 +99,16 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 startBatteryPercent = 78,
                 endBatteryPercent = 73,
                 multiplierVsNormal = 0.95f,
-                overallConfidence = "Measured",
+                overallConfidence = "Demo",
                 primaryTitle = "Normal Doze Maintenance",
                 primarySubtitle = "System idle · 6 maintenance windows",
-                primaryConfidence = "Measured",
+                primaryConfidence = "Demo",
                 secondaryTitle = "Stable Wi-Fi Connection",
                 secondarySubtitle = "Wi-Fi 5GHz · -54 dBm throughout night",
-                secondaryConfidence = "Measured",
+                secondaryConfidence = "Demo",
                 factorTitle = "Minimal Off-Screen Awake Time",
                 factorSubtitle = "19m awake while screen off",
-                factorConfidence = "Measured",
+                factorConfidence = "Demo",
                 possibleTitle = "Scheduled Cloud Backup",
                 possibleSubtitle = "1 brief sync window at 2:15 AM",
                 possibleConfidence = "Likely",
@@ -100,16 +131,16 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 startBatteryPercent = 84,
                 endBatteryPercent = 78,
                 multiplierVsNormal = 1.1f,
-                overallConfidence = "Measured",
+                overallConfidence = "Demo",
                 primaryTitle = "Routine Messaging Sync",
                 primarySubtitle = "WhatsApp · 14 background events",
                 primaryConfidence = "Likely",
                 secondaryTitle = "Cellular Standby",
                 secondarySubtitle = "LTE · 3–4 bars steady",
-                secondaryConfidence = "Measured",
+                secondaryConfidence = "Demo",
                 factorTitle = "Off-Screen Awake Time",
                 factorSubtitle = "26m awake while screen off",
-                factorConfidence = "Measured",
+                factorConfidence = "Demo",
                 possibleTitle = "Location Geofence Check",
                 possibleSubtitle = "Maps · 2 passive location checks",
                 possibleConfidence = "Possible",
@@ -132,19 +163,19 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 startBatteryPercent = 91,
                 endBatteryPercent = 87,
                 multiplierVsNormal = 0.71f,
-                overallConfidence = "Measured",
+                overallConfidence = "Demo",
                 primaryTitle = "Deep Doze Efficiency",
                 primarySubtitle = "94% screen-off idle residency",
-                primaryConfidence = "Measured",
+                primaryConfidence = "Demo",
                 secondaryTitle = "Strong Wi-Fi Signal",
                 secondarySubtitle = "No cellular fallback handoffs",
-                secondaryConfidence = "Measured",
+                secondaryConfidence = "Demo",
                 factorTitle = "Minimal Wake Events",
                 factorSubtitle = "12m awake while screen off",
-                factorConfidence = "Measured",
+                factorConfidence = "Demo",
                 possibleTitle = "No Abnormal App Activity",
                 possibleSubtitle = "All apps within baseline standby buckets",
-                possibleConfidence = "Measured",
+                possibleConfidence = "Demo",
                 screenOffDuration = "8h 26m",
                 awakeDuration = "12m",
                 weakSignalDuration = "0m",
@@ -162,7 +193,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 67,
                 title = "Phone locked",
                 detail = "Screen turned OFF · Light Doze scheduled",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 28_800_000L
             ),
             TimelineEventEntity(
@@ -171,7 +202,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 66,
                 title = "App activity detected",
                 detail = "Instagram · 18 background sync events after v312.0 update",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 27_500_000L
             ),
             TimelineEventEntity(
@@ -180,7 +211,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 64,
                 title = "Network activity",
                 detail = "Wi-Fi idle → Cellular LTE fallback burst",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 25_000_000L
             ),
             TimelineEventEntity(
@@ -189,7 +220,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 61,
                 title = "Wake event",
                 detail = "Device exited Doze for 29m (Instagram + GMS job)",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 20_500_000L
             ),
             TimelineEventEntity(
@@ -198,7 +229,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 58,
                 title = "Weak cellular signal",
                 detail = "LTE dropped to 1–2 bars for 2h 31m",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 15_300_000L
             ),
             TimelineEventEntity(
@@ -207,7 +238,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 55,
                 title = "Temperature increased",
                 detail = "Battery rose from 27.6°C to 31.4°C during background sync",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 9_600_000L
             ),
             TimelineEventEntity(
@@ -216,7 +247,7 @@ class ForensicsRepository(private val dao: ForensicsDao) {
                 batteryPercent = 53,
                 title = "Phone unlocked",
                 detail = "Overnight window complete · Total drain: 14% (1.75%/hr)",
-                classificationLabel = "Measured",
+                classificationLabel = "Demo",
                 timestamp = now - 3_600_000L
             )
         )
@@ -418,6 +449,8 @@ class ForensicsRepository(private val dao: ForensicsDao) {
         dao.clearAllExperiments()
         if (reseedAfterClear) {
             seedDefaultData()
+        } else {
+            _isDemoData.value = false
         }
     }
 }

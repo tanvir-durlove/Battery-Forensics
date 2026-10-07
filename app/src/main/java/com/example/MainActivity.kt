@@ -1,8 +1,12 @@
 package com.example
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -89,6 +93,8 @@ fun BatteryForensicsApp(
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val activityEstimates by viewModel.activityEstimates.collectAsStateWithLifecycle()
     val appActivityInsights by viewModel.appActivityInsights.collectAsStateWithLifecycle()
+    val needsUsagePermission by viewModel.needsUsagePermission.collectAsStateWithLifecycle()
+    val isDemoData by viewModel.isDemoData.collectAsStateWithLifecycle()
     val appSelfAudit by viewModel.appSelfAudit.collectAsStateWithLifecycle()
     val isAdbBatteryStatsGranted by viewModel.isAdbBatteryStatsGranted.collectAsStateWithLifecycle()
     val diagnosticSessions by viewModel.diagnosticSessions.collectAsStateWithLifecycle()

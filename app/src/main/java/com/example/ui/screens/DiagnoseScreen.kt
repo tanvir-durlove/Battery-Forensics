@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AdbWakelockEntry
+import com.example.data.AppActivityInsight
 import com.example.data.DiagnosticSessionEntity
 import com.example.data.EvidenceChainStep
 import com.example.data.EvidenceRecommendation
@@ -62,6 +64,7 @@ import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
 import com.example.ui.components.StatGuideTopic
+import com.example.ui.components.UsagePermissionCard
 import com.example.ui.theme.ForensicsPalette
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -91,12 +94,18 @@ fun DiagnoseScreen(
     videoAd1ShownCount: Int = 0,
     onTriggerVideoAd1: () -> Unit = {},
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
+    needsUsagePermission: Boolean = false,
+    isDemoData: Boolean = false,
+    appInsights: List<AppActivityInsight> = emptyList(),
+    sampleAppInsights: List<AppActivityInsight> = emptyList(),
+    onOpenUsageSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val selectedSession = sessions.firstOrNull { it.id == selectedSessionId } ?: sessions.firstOrNull()
     var showAnnotateDialog by remember { mutableStateOf(false) }
     var showNewExperimentDialog by remember { mutableStateOf(false) }
     var showComparisonDialog by remember { mutableStateOf(false) }
+    var isPreviewingSampleData by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier
@@ -408,6 +417,14 @@ fun DiagnoseScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
+                                        val isDemoSession = isDemoData || session.overallConfidence.contains("Demo", ignoreCase = true) || session.id in listOf("last_night", "tuesday_night", "monday_night", "sunday_night")
+                                        if (isDemoSession) {
+                                            ClassificationBadge(
+                                                text = "Demo",
+                                                containerColor = ForensicsPalette.AmberPill,
+                                                contentColor = ForensicsPalette.AmberPrimary
+                                            )
+                                        }
                                         if (session.isAnomaly) {
                                             ClassificationBadge(
                                                 text = "Anomaly",
@@ -455,10 +472,12 @@ fun DiagnoseScreen(
                                     .weight(1f)
                                     .padding(end = 8.dp)
                             )
+                            val isSelectedDemo = isDemoData || selectedSession.id in listOf("last_night", "tuesday_night", "monday_night", "sunday_night") || selectedSession.overallConfidence.contains("Demo", ignoreCase = true)
+                            val badgeLabel = if (isSelectedDemo) "Demo" else selectedSession.overallConfidence
                             ClassificationBadge(
-                                text = selectedSession.overallConfidence,
-                                containerColor = ForensicsPalette.BlueContainer,
-                                contentColor = ForensicsPalette.BluePrimary
+                                text = badgeLabel,
+                                containerColor = if (isSelectedDemo) ForensicsPalette.AmberPill else ForensicsPalette.BlueContainer,
+                                contentColor = if (isSelectedDemo) ForensicsPalette.AmberPrimary else ForensicsPalette.BluePrimary
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
@@ -604,6 +623,186 @@ fun DiagnoseScreen(
                     title = selectedSession.possibleTitle,
                     subtitle = selectedSession.possibleSubtitle
                 )
+            }
+
+            // App Activity & Attribution Section
+            item {
+                if (needsUsagePermission && !isPreviewingSampleData) {
+                    UsagePermissionCard(
+                        onGrantPermission = onOpenUsageSettings,
+                        onPreviewSampleData = { isPreviewingSampleData = true }
+                    )
+                } else {
+                    val effectiveApps = if (needsUsagePermission && isPreviewingSampleData) sampleAppInsights else appInsights
+                    ForensicsCard(modifier = Modifier.testTag("diagnose_app_activity_card")) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
+                        ) {
+                            if (needsUsagePermission && isPreviewingSampleData) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(ForensicsPalette.AmberContainer)
+                                        .border(1.dp, ForensicsPalette.AmberBorder, RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        ) {
+                                            ClassificationBadge(
+                                                text = "SAMPLE",
+                                                containerColor = ForensicsPalette.AmberPill,
+                                                contentColor = ForensicsPalette.AmberPrimary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Sample data — not measured on this device.",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = ForensicsPalette.AmberDarkText
+                                            )
+                                        }
+                                        Text(
+                                            text = "Grant Access →",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ForensicsPalette.BluePrimary,
+                                            modifier = Modifier.clickable { onOpenUsageSettings() }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "APP ACTIVITY & ATTRIBUTION",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = ForensicsPalette.TextSecondary
+                                )
+                                Text(
+                                    text = "${effectiveApps.size} apps detected",
+                                    fontSize = 11.sp,
+                                    color = ForensicsPalette.TextMuted
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Foreground screen duration and background wakeups mapped directly to measured drain windows.",
+                                fontSize = 12.sp,
+                                color = ForensicsPalette.TextSecondary,
+                                lineHeight = 17.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            if (effectiveApps.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(ForensicsPalette.SubtleSurface)
+                                        .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(12.dp))
+                                        .padding(14.dp)
+                                ) {
+                                    Text(
+                                        text = "No abnormal foreground compute or background wake events detected.",
+                                        fontSize = 13.sp,
+                                        color = ForensicsPalette.TextSecondary
+                                    )
+                                }
+                            } else {
+                                effectiveApps.forEachIndexed { idx, app ->
+                                    val (avatarBg, avatarBorder, avatarText) = when {
+                                        app.culpritType?.contains("Overheat", ignoreCase = true) == true -> Triple(ForensicsPalette.RedContainer, ForensicsPalette.RedBorder, ForensicsPalette.RedPrimary)
+                                        app.culpritType?.contains("Vampire", ignoreCase = true) == true -> Triple(ForensicsPalette.AmberSoftTile, ForensicsPalette.AmberBorder, ForensicsPalette.AmberPrimary)
+                                        else -> Triple(ForensicsPalette.BlueSoftTile, ForensicsPalette.BlueBorder, ForensicsPalette.BluePrimary)
+                                    }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        ) {
+                                            val shape = RoundedCornerShape(8.dp)
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(34.dp)
+                                                    .clip(shape)
+                                                    .background(avatarBg)
+                                                    .border(1.dp, avatarBorder, shape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = app.initial,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = avatarText
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = app.appName,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = ForensicsPalette.TextPrimary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    if (needsUsagePermission && isPreviewingSampleData) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        ClassificationBadge(
+                                                            text = "SAMPLE",
+                                                            containerColor = ForensicsPalette.AmberPill,
+                                                            contentColor = ForensicsPalette.AmberPrimary
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "${app.foregroundDurationLabel} screen · ${app.backgroundEventsCount} bg wakeups",
+                                                    fontSize = 11.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = ForensicsPalette.TextSecondary
+                                                )
+                                            }
+                                        }
+                                        if (app.culpritType != null) {
+                                            ClassificationBadge(
+                                                text = app.culpritType,
+                                                containerColor = avatarBg,
+                                                contentColor = avatarText
+                                            )
+                                        }
+                                    }
+                                    if (idx < effectiveApps.lastIndex) {
+                                        HorizontalDivider(color = ForensicsPalette.DividerColor, thickness = 0.8.dp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // View Evidence Chain Button (Screenshot 2)

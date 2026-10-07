@@ -34,10 +34,13 @@ import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -532,6 +535,134 @@ fun InlineForensicsAdBannerCard(
                         text = "Google AdMob Active Banner",
                         fontSize = 12.sp,
                         color = ForensicsPalette.TextSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DemoDataBanner(
+    modifier: Modifier = Modifier
+) {
+    ForensicsCard(
+        modifier = modifier.testTag("demo_data_banner"),
+        containerColor = ForensicsPalette.AmberContainer
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ClassificationBadge(
+                text = "DEMO DATA",
+                containerColor = ForensicsPalette.AmberPill,
+                contentColor = ForensicsPalette.AmberPrimary
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Demo data mode active",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ForensicsPalette.AmberDarkText
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Displaying sample baseline data. Real telemetry records as you use your device.",
+                    fontSize = 11.sp,
+                    color = ForensicsPalette.AmberDarkText.copy(alpha = 0.85f),
+                    lineHeight = 15.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UsagePermissionCard(
+    onGrantPermission: () -> Unit,
+    onPreviewSampleData: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ForensicsCard(
+        modifier = modifier.testTag("usage_permission_card"),
+        containerColor = ForensicsPalette.SubtleSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "USAGE ACCESS REQUIRED",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                    color = ForensicsPalette.AmberPrimary
+                )
+                ClassificationBadge(
+                    text = "Permission",
+                    containerColor = ForensicsPalette.AmberPill,
+                    contentColor = ForensicsPalette.AmberPrimary
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Grant Usage Access to see which apps really drain your battery",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = ForensicsPalette.TextPrimary,
+                lineHeight = 20.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Android isolates per-app CPU, GPU, and background wakeups. Usage Access lets Battery Forensics identify which apps cause heat and battery drain on this device without sending data off-device.",
+                fontSize = 12.sp,
+                color = ForensicsPalette.TextSecondary,
+                lineHeight = 17.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onGrantPermission,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ForensicsPalette.BluePrimary,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("grant_usage_access_button")
+                ) {
+                    Text(
+                        text = "Grant Usage Access",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+                TextButton(
+                    onClick = onPreviewSampleData,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.testTag("preview_sample_data_button")
+                ) {
+                    Text(
+                        text = "Preview with sample data",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ForensicsPalette.BluePrimary
                     )
                 }
             }

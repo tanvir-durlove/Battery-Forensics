@@ -9,7 +9,8 @@ enum class DataClassification(val label: String) {
     DEVICE_DEPENDENT("Device dependent"),
     LIMITED("Limited"),
     UNAVAILABLE("Unavailable"),
-    ADB_DERIVED("ADB-derived diagnostic data")
+    ADB_DERIVED("ADB-derived diagnostic data"),
+    DEMO("Demo")
 }
 
 enum class ConfidenceLevel(val label: String) {
@@ -17,7 +18,8 @@ enum class ConfidenceLevel(val label: String) {
     STRONG_EVIDENCE("Strong Evidence"),
     LIKELY("Likely"),
     POSSIBLE("Possible"),
-    INSUFFICIENT_DATA("Insufficient Data")
+    INSUFFICIENT_DATA("Insufficient Data"),
+    DEMO("Demo")
 }
 
 enum class ContributorRole(val label: String) {
@@ -247,6 +249,11 @@ data class AppActivityInsight(
     val culpritType: String? = null, // "Thermal Overheat", "Background Vampire", "Screen Drainer"
     val thermalCorrelationNote: String? = null,
     val estimatedDrainPct: Float = 0f
+)
+
+data class AppActivityInsightsResult(
+    val items: List<AppActivityInsight> = emptyList(),
+    val needsUsagePermission: Boolean = false
 )
 
 data class AppSelfAudit(

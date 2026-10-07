@@ -11,6 +11,7 @@ import com.example.data.AiBatteryDoctorClient
 import com.example.data.AiDoctorExchange
 import com.example.data.AiDoctorSessionManager
 import com.example.data.AppActivityInsight
+import com.example.data.AppActivityInsightsResult
 import com.example.data.AppSelfAudit
 import com.example.data.CapabilityItem
 import com.example.data.ChargerProfileEntity
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -104,11 +106,14 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val prefs = application.getSharedPreferences("battery_forensics_prefs", Context.MODE_PRIVATE)
     private val database = ForensicsDatabase.getInstance(application)
-    private val repository = ForensicsRepository(database.forensicsDao())
     private val scanner = DeviceTelemetryScanner(application)
+    private val repository = ForensicsRepository(database.forensicsDao(), scanner)
     private val aiClient = AiBatteryDoctorClient()
     private val exporter = ForensicsReportExporter(application)
     val rewardedAdManager = RewardedAdManager(application)
+
+    // Demo Data State
+    val isDemoData: StateFlow<Boolean> = repository.isDemoData
 
     // Navigation state
     private val _currentTab = MutableStateFlow(MainTab.HOME)
@@ -168,8 +173,17 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     val manufacturerProfile: ManufacturerProfileInfo = scanner.getManufacturerProfile()
 
     // Real App Usage & Activity Estimates (from UsageStatsManager)
-    private val _appActivityInsights = MutableStateFlow(scanner.queryRealAppActivityInsights())
+    private val _appActivityInsightsResult = MutableStateFlow(repository.queryRealAppActivityInsights(scanner))
+    val appActivityInsightsResult: StateFlow<AppActivityInsightsResult> = _appActivityInsightsResult.asStateFlow()
+
+    private val _appActivityInsights = MutableStateFlow(_appActivityInsightsResult.value.items)
     val appActivityInsights: StateFlow<List<AppActivityInsight>> = _appActivityInsights.asStateFlow()
+
+    val needsUsagePermission: StateFlow<Boolean> = _appActivityInsightsResult
+        .map { it.needsUsagePermission }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _appActivityInsightsResult.value.needsUsagePermission)
+
+    fun getSampleAppInsights(): List<AppActivityInsight> = scanner.getSampleAppInsights()
 
     private val _activityEstimates = MutableStateFlow(scanner.queryRealActivityEstimates(_appActivityInsights.value))
     val activityEstimates: StateFlow<List<ActivityEstimateItem>> = _activityEstimates.asStateFlow()
@@ -433,9 +447,10 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         val snap = scanner.captureLiveTelemetry(_adbModeEnabled.value)
         _liveTelemetry.value = snap
         _capabilities.value = scanner.scanCapabilities(snap, _adbModeEnabled.value)
-        val realApps = scanner.queryRealAppActivityInsights()
-        _appActivityInsights.value = realApps
-        _activityEstimates.value = scanner.queryRealActivityEstimates(realApps)
+        val insightResult = repository.queryRealAppActivityInsights(scanner)
+        _appActivityInsightsResult.value = insightResult
+        _appActivityInsights.value = insightResult.items
+        _activityEstimates.value = scanner.queryRealActivityEstimates(insightResult.items)
         _isAdbBatteryStatsGranted.value = scanner.isAdbBatteryStatsGranted()
     }
 

@@ -851,63 +851,83 @@ class DeviceTelemetryScanner(private val context: Context) {
     }
 
     /**
-     * Queries real per-app usage statistics from UsageStatsManager over the last 24 hours.
-     * Maps them into categorized drain & thermal culprits. If Usage Access is not granted yet,
-     * returns representative system baseline categories so users can explore and tap to grant permission.
+     * 4 realistic sample apps for preview mode only.
+     * Each row is explicitly flagged as "SAMPLE" in the UI.
      */
-    fun queryRealAppActivityInsights(): List<AppActivityInsight> {
+    fun getSampleAppInsights(): List<AppActivityInsight> = listOf(
+        AppActivityInsight(
+            initial = "Y",
+            appName = "Video Streaming & Feeds",
+            packageName = "com.google.android.youtube",
+            hasLocationBadge = false,
+            foregroundDurationLabel = "1h 15m",
+            backgroundEventsCount = 18,
+            impactLevel = "High",
+            culpritType = "🔥 Overheat Culprit",
+            thermalCorrelationNote = "Continuous GPU & video decoding active during 38.6°C thermal peak",
+            estimatedDrainPct = 16.5f
+        ),
+        AppActivityInsight(
+            initial = "M",
+            appName = "Social & Messaging",
+            packageName = "com.facebook.orca",
+            hasLocationBadge = true,
+            foregroundDurationLabel = "22m",
+            backgroundEventsCount = 84,
+            impactLevel = "High",
+            culpritType = "⚡ Background Vampire",
+            thermalCorrelationNote = "84 background sync wakeups occurred while device was asleep",
+            estimatedDrainPct = 11.2f
+        ),
+        AppActivityInsight(
+            initial = "C",
+            appName = "Camera & Gallery",
+            packageName = "com.google.android.GoogleCamera",
+            hasLocationBadge = true,
+            foregroundDurationLabel = "35m",
+            backgroundEventsCount = 12,
+            impactLevel = "High",
+            culpritType = "🔥 Overheat Culprit",
+            thermalCorrelationNote = "ISP image processor and sensor array draw high current & heat",
+            estimatedDrainPct = 9.8f
+        ),
+        AppActivityInsight(
+            initial = "B",
+            appName = "Web Browser",
+            packageName = "com.android.chrome",
+            hasLocationBadge = false,
+            foregroundDurationLabel = "48m",
+            backgroundEventsCount = 26,
+            impactLevel = "Med",
+            culpritType = "📱 Screen Drainer",
+            thermalCorrelationNote = "Active web rendering and JavaScript compute",
+            estimatedDrainPct = 7.4f
+        )
+    )
+
+    /**
+     * Queries real per-app usage statistics from UsageStatsManager over the last 24 hours.
+     * When Usage Access is NOT granted, returns an empty list plus needsUsagePermission = true.
+     */
+    fun queryRealAppActivityInsightsResult(): AppActivityInsightsResult {
         if (!isUsageAccessGranted()) {
-            return listOf(
-                AppActivityInsight(
-                    initial = "Y",
-                    appName = "Video Streaming & Feeds",
-                    packageName = "com.google.android.youtube",
-                    hasLocationBadge = false,
-                    foregroundDurationLabel = "1h 15m",
-                    backgroundEventsCount = 18,
-                    impactLevel = "High",
-                    culpritType = "🔥 Overheat Culprit",
-                    thermalCorrelationNote = "Continuous GPU & video decoding active during 38.6°C thermal peak",
-                    estimatedDrainPct = 16.5f
-                ),
-                AppActivityInsight(
-                    initial = "M",
-                    appName = "Social & Messaging",
-                    packageName = "com.facebook.orca",
-                    hasLocationBadge = true,
-                    foregroundDurationLabel = "22m",
-                    backgroundEventsCount = 84,
-                    impactLevel = "High",
-                    culpritType = "⚡ Background Vampire",
-                    thermalCorrelationNote = "84 background sync wakeups occurred while device was asleep",
-                    estimatedDrainPct = 11.2f
-                ),
-                AppActivityInsight(
-                    initial = "C",
-                    appName = "Camera & Gallery",
-                    packageName = "com.google.android.GoogleCamera",
-                    hasLocationBadge = true,
-                    foregroundDurationLabel = "35m",
-                    backgroundEventsCount = 12,
-                    impactLevel = "High",
-                    culpritType = "🔥 Overheat Culprit",
-                    thermalCorrelationNote = "ISP image processor and sensor array draw high current & heat",
-                    estimatedDrainPct = 9.8f
-                ),
-                AppActivityInsight(
-                    initial = "B",
-                    appName = "Web Browser",
-                    packageName = "com.android.chrome",
-                    hasLocationBadge = false,
-                    foregroundDurationLabel = "48m",
-                    backgroundEventsCount = 26,
-                    impactLevel = "Med",
-                    culpritType = "📱 Screen Drainer",
-                    thermalCorrelationNote = "Active web rendering and JavaScript compute",
-                    estimatedDrainPct = 7.4f
-                )
+            return AppActivityInsightsResult(
+                items = emptyList(),
+                needsUsagePermission = true
             )
         }
+        val realApps = queryMeasuredUsageStats()
+        return AppActivityInsightsResult(
+            items = realApps,
+            needsUsagePermission = false
+        )
+    }
+
+    fun queryRealAppActivityInsights(): List<AppActivityInsight> {
+        return queryRealAppActivityInsightsResult().items
+    }
+
+    private fun queryMeasuredUsageStats(): List<AppActivityInsight> {
         return try {
             val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyList()
             val pm = context.packageManager

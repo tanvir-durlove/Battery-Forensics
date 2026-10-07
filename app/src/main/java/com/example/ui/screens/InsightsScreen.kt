@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,10 +58,12 @@ import com.example.data.DayDrainPoint
 import com.example.ui.InsightsTimeframe
 import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
+import com.example.ui.components.DemoDataBanner
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
 import com.example.ui.components.StatGuideTopic
+import com.example.ui.components.UsagePermissionCard
 import com.example.ui.theme.ForensicsPalette
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -90,6 +93,10 @@ fun InsightsScreen(
     appSelfAudit: AppSelfAudit = AppSelfAudit(),
     isAdbBatteryStatsGranted: Boolean = false,
     onRefreshAdbState: () -> Unit = {},
+    needsUsagePermission: Boolean = false,
+    isDemoData: Boolean = false,
+    sampleAppInsights: List<AppActivityInsight> = emptyList(),
+    onOpenUsageSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val activePoints = when (timeframe) {
@@ -102,6 +109,7 @@ fun InsightsScreen(
     var selectedApp by remember { mutableStateOf<AppActivityInsight?>(null) }
     var showAdbGuideModal by remember { mutableStateOf(false) }
     var selectedCulpritFilter by remember { mutableStateOf("All") } // "All", "Overheat", "Background", "Screen"
+    var isPreviewingSampleData by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier
@@ -125,6 +133,13 @@ fun InsightsScreen(
                 fontSize = 13.sp,
                 color = ForensicsPalette.TextSecondary
             )
+        }
+
+        // Persistent Demo Data Banner when demo baseline is active
+        if (isDemoData) {
+            item {
+                DemoDataBanner()
+            }
         }
 
         // Top Banner: Anomaly if detected, OR "Building Baseline — Keep Using" on fresh install
@@ -631,21 +646,71 @@ fun InsightsScreen(
 
         // 2. THERMAL & BATTERY DRAIN CULPRITS Card
         item {
-            val filteredCulprits = remember(appInsights, selectedCulpritFilter) {
-                when (selectedCulpritFilter) {
-                    "Overheat" -> appInsights.filter { it.culpritType?.contains("Overheat", ignoreCase = true) == true }
-                    "Background" -> appInsights.filter { it.culpritType?.contains("Vampire", ignoreCase = true) == true || it.backgroundEventsCount >= 25 }
-                    "Screen" -> appInsights.filter { it.culpritType?.contains("Screen", ignoreCase = true) == true || it.foregroundDurationLabel.contains("h") }
-                    else -> appInsights
+            if (needsUsagePermission && !isPreviewingSampleData) {
+                UsagePermissionCard(
+                    onGrantPermission = onOpenUsageSettings,
+                    onPreviewSampleData = { isPreviewingSampleData = true }
+                )
+            } else {
+                val effectiveApps = if (needsUsagePermission && isPreviewingSampleData) sampleAppInsights else appInsights
+                val filteredCulprits = remember(effectiveApps, selectedCulpritFilter) {
+                    when (selectedCulpritFilter) {
+                        "Overheat" -> effectiveApps.filter { it.culpritType?.contains("Overheat", ignoreCase = true) == true }
+                        "Background" -> effectiveApps.filter { it.culpritType?.contains("Vampire", ignoreCase = true) == true || it.backgroundEventsCount >= 25 }
+                        "Screen" -> effectiveApps.filter { it.culpritType?.contains("Screen", ignoreCase = true) == true || it.foregroundDurationLabel.contains("h") }
+                        else -> effectiveApps
+                    }
                 }
-            }
 
-            ForensicsCard(modifier = Modifier.testTag("insights_culprits_card")) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp)
-                ) {
+                ForensicsCard(modifier = Modifier.testTag("insights_culprits_card")) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    ) {
+                        // Sample preview banner at top of the card
+                        if (needsUsagePermission && isPreviewingSampleData) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(ForensicsPalette.AmberContainer)
+                                    .border(1.dp, ForensicsPalette.AmberBorder, RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 9.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    ) {
+                                        ClassificationBadge(
+                                            text = "SAMPLE",
+                                            containerColor = ForensicsPalette.AmberPill,
+                                            contentColor = ForensicsPalette.AmberPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Sample data — not measured on this device.",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ForensicsPalette.AmberDarkText
+                                        )
+                                    }
+                                    Text(
+                                        text = "Grant Access →",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ForensicsPalette.BluePrimary,
+                                        modifier = Modifier.clickable { onOpenUsageSettings() }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                        }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -790,6 +855,14 @@ fun InsightsScreen(
                                                 overflow = TextOverflow.Ellipsis,
                                                 modifier = Modifier.weight(1f, fill = false)
                                             )
+                                            if (needsUsagePermission && isPreviewingSampleData) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                ClassificationBadge(
+                                                    text = "SAMPLE",
+                                                    containerColor = ForensicsPalette.AmberPill,
+                                                    contentColor = ForensicsPalette.AmberPrimary
+                                                )
+                                            }
                                             if (app.culpritType != null) {
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 ClassificationBadge(
@@ -844,6 +917,7 @@ fun InsightsScreen(
                         }
                     }
                 }
+            }
             }
         }
 

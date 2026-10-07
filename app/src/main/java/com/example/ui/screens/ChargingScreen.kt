@@ -56,6 +56,7 @@ import com.example.ui.ChargingSubTab
 import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ChargerPlugGraphicIcon
 import com.example.ui.components.ClassificationBadge
+import com.example.ui.components.DemoDataBanner
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.SegmentedPillSelector
@@ -73,6 +74,7 @@ fun ChargingScreen(
     isDeepBenchmarkUnlocked: Boolean = false,
     onTriggerVideoAd2: () -> Unit = {},
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
+    isDemoData: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var showAddChargerDialog by remember { mutableStateOf(false) }
@@ -100,6 +102,13 @@ fun ChargingScreen(
                 fontSize = 13.sp,
                 color = ForensicsPalette.TextSecondary
             )
+        }
+
+        // Persistent Demo Data Banner when demo baseline is active
+        if (isDemoData) {
+            item {
+                DemoDataBanner()
+            }
         }
 
         // Top Charging Status Card (Screenshots 5, 6, 7)
@@ -331,7 +340,7 @@ fun ChargingScreen(
 
                     items(chargingSessions.size) { index ->
                         val session = chargingSessions[index]
-                        ChargingSessionCard(session = session)
+                        ChargingSessionCard(session = session, isDemoData = isDemoData)
                     }
                 }
 
@@ -511,7 +520,7 @@ fun ChargingScreen(
                     ChargingHealthItemCard(
                         accentColor = ForensicsPalette.GreenPrimary,
                         title = "Charging Speed",
-                        badgeText = if (hasSessions || snapshot.isCharging) "Measured" else "Collecting",
+                        badgeText = if (isDemoData) "Demo" else if (hasSessions || snapshot.isCharging) "Measured" else "Collecting",
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
                         description = when {
@@ -552,6 +561,7 @@ fun ChargingScreen(
                         accentColor = ForensicsPalette.GreenPrimary,
                         title = "Curve Shape",
                         badgeText = when {
+                            isDemoData -> "Demo"
                             hasTaperCrossing -> "Measured"
                             hasSessions -> "Partial Cycle"
                             else -> "Calibrating"
@@ -872,9 +882,10 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
 }
 
 @Composable
-private fun ChargingSessionCard(session: ChargingSessionEntity) {
+private fun ChargingSessionCard(session: ChargingSessionEntity, isDemoData: Boolean = false) {
     val cardBg = if (session.isSlowBadge) ForensicsPalette.AmberInnerCard else ForensicsPalette.CardSurface
     val tempColor = if (session.isElevatedTemp) ForensicsPalette.RedPrimary else ForensicsPalette.TextPrimary
+    val isDemoSession = isDemoData || session.chargerName.equals("Unknown charger", ignoreCase = true) || session.dateTimeLabel in listOf("Today, 8:14 AM", "Yesterday, 11:30 PM", "Mon, 9:00 AM", "Sun, 7:45 PM")
 
     ForensicsCard(containerColor = cardBg) {
         Column(
@@ -894,6 +905,14 @@ private fun ChargingSessionCard(session: ChargingSessionEntity) {
                         fontWeight = FontWeight.Bold,
                         color = ForensicsPalette.TextPrimary
                     )
+                    if (isDemoSession) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        ClassificationBadge(
+                            text = "Demo",
+                            containerColor = ForensicsPalette.AmberPill,
+                            contentColor = ForensicsPalette.AmberPrimary
+                        )
+                    }
                     if (session.isSlowBadge) {
                         Spacer(modifier = Modifier.width(8.dp))
                         ClassificationBadge(

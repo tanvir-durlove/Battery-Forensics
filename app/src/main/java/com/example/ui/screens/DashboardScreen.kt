@@ -54,6 +54,7 @@ import com.example.data.LiveTelemetrySnapshot
 import com.example.ui.components.CapabilityStatusGraphicBadge
 import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
+import com.example.ui.components.DemoDataBanner
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
 import com.example.ui.components.StatGuideTopic
@@ -67,6 +68,7 @@ fun DashboardScreen(
     activityEstimates: List<ActivityEstimateItem>,
     capabilities: List<CapabilityItem>,
     isHistoryEmpty: Boolean = false,
+    isDemoData: Boolean = false,
     onRefresh: () -> Unit,
     onNavigateToDiagnose: () -> Unit,
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
@@ -131,6 +133,13 @@ fun DashboardScreen(
                         softWrap = false
                     )
                 }
+            }
+        }
+
+        // Persistent Demo Data Banner when demo baseline is active
+        if (isDemoData) {
+            item {
+                DemoDataBanner()
             }
         }
 
