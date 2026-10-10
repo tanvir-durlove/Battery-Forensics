@@ -294,6 +294,9 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         // Fresh install starts strictly with real device telemetry — no random pre-seeded numbers
         refreshTelemetry()
+        viewModelScope.launch {
+            repository.refreshDemoFlag()
+        }
         try {
             BatteryTrackingReceiver.register(getApplication(), batteryReceiver)
             isBatteryReceiverRegistered = true

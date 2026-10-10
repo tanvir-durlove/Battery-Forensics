@@ -233,6 +233,7 @@ fun BatteryForensicsApp(
                             activityEstimates = activityEstimates,
                             capabilities = capabilities,
                             isHistoryEmpty = diagnosticSessions.isEmpty() && chargingSessions.isEmpty(),
+                            isDemoData = isDemoData,
                             onRefresh = { viewModel.refreshTelemetry() },
                             onNavigateToDiagnose = { viewModel.selectTab(MainTab.DIAGNOSE) },
                             onShowTopicGuide = { selectedStatTopic = it }
@@ -277,7 +278,8 @@ fun BatteryForensicsApp(
                             onOpenAiDoctor = { handleAiDoctorClick() },
                             videoAd1ShownCount = videoAd1ShownCount,
                             onTriggerVideoAd1 = { handleTriggerVideoAd1() },
-                            onShowTopicGuide = { selectedStatTopic = it }
+                            onShowTopicGuide = { selectedStatTopic = it },
+                            isDemoData = isDemoData
                         )
                     }
                     MainTab.INSIGHTS -> {
@@ -295,7 +297,8 @@ fun BatteryForensicsApp(
                             onShowTopicGuide = { selectedStatTopic = it },
                             appSelfAudit = appSelfAudit,
                             isAdbBatteryStatsGranted = isAdbBatteryStatsGranted,
-                            onRefreshAdbState = { viewModel.refreshTelemetry() }
+                            onRefreshAdbState = { viewModel.refreshTelemetry() },
+                            isDemoData = isDemoData
                         )
                     }
                     MainTab.CHARGING -> {
@@ -310,7 +313,8 @@ fun BatteryForensicsApp(
                             },
                             isDeepBenchmarkUnlocked = isDeepBenchmarkUnlocked,
                             onTriggerVideoAd2 = { handleTriggerVideoAd2() },
-                            onShowTopicGuide = { selectedStatTopic = it }
+                            onShowTopicGuide = { selectedStatTopic = it },
+                            isDemoData = isDemoData
                         )
                     }
                     MainTab.SETTINGS -> {

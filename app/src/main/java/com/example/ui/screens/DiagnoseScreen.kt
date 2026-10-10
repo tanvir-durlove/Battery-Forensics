@@ -54,11 +54,13 @@ import com.example.data.DiagnosticSessionEntity
 import com.example.data.EvidenceChainStep
 import com.example.data.EvidenceRecommendation
 import com.example.data.ExperimentEntity
+import com.example.data.ForensicsRepository
 import com.example.data.TimelineEventEntity
 import com.example.ui.ActiveDiagnosticTestRun
 import com.example.ui.DiagnoseSubTab
 import com.example.ui.components.CardInfoIconButton
 import com.example.ui.components.ClassificationBadge
+import com.example.ui.components.DemoDataBanner
 import com.example.ui.components.DiagnosticTestGraphicIcon
 import com.example.ui.components.ForensicsCard
 import com.example.ui.components.InlineForensicsAdBannerCard
@@ -160,6 +162,13 @@ fun DiagnoseScreen(
                         softWrap = false
                     )
                 }
+            }
+        }
+
+        // Persistent Demo Data Banner when demo baseline is active
+        if (isDemoData) {
+            item {
+                DemoDataBanner()
             }
         }
 
@@ -417,7 +426,7 @@ fun DiagnoseScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        val isDemoSession = isDemoData || session.overallConfidence.contains("Demo", ignoreCase = true) || session.id in listOf("last_night", "tuesday_night", "monday_night", "sunday_night")
+                                        val isDemoSession = isDemoData || session.overallConfidence.contains("Demo", ignoreCase = true) || session.id in ForensicsRepository.DEMO_SESSION_IDS
                                         if (isDemoSession) {
                                             ClassificationBadge(
                                                 text = "Demo",
@@ -472,7 +481,7 @@ fun DiagnoseScreen(
                                     .weight(1f)
                                     .padding(end = 8.dp)
                             )
-                            val isSelectedDemo = isDemoData || selectedSession.id in listOf("last_night", "tuesday_night", "monday_night", "sunday_night") || selectedSession.overallConfidence.contains("Demo", ignoreCase = true)
+                            val isSelectedDemo = isDemoData || selectedSession.id in ForensicsRepository.DEMO_SESSION_IDS || selectedSession.overallConfidence.contains("Demo", ignoreCase = true)
                             val badgeLabel = if (isSelectedDemo) "Demo" else selectedSession.overallConfidence
                             ClassificationBadge(
                                 text = badgeLabel,

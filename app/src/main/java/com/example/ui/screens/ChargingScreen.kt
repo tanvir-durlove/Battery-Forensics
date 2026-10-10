@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChargerProfileEntity
 import com.example.data.ChargingSessionEntity
+import com.example.data.ForensicsRepository
 import com.example.data.LiveTelemetrySnapshot
 import com.example.ui.ChargingSubTab
 import com.example.ui.components.CardInfoIconButton
@@ -885,7 +886,7 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
 private fun ChargingSessionCard(session: ChargingSessionEntity, isDemoData: Boolean = false) {
     val cardBg = if (session.isSlowBadge) ForensicsPalette.AmberInnerCard else ForensicsPalette.CardSurface
     val tempColor = if (session.isElevatedTemp) ForensicsPalette.RedPrimary else ForensicsPalette.TextPrimary
-    val isDemoSession = isDemoData || session.chargerName.equals("Unknown charger", ignoreCase = true) || session.dateTimeLabel in listOf("Today, 8:14 AM", "Yesterday, 11:30 PM", "Mon, 9:00 AM", "Sun, 7:45 PM")
+    val isDemoSession = isDemoData || ForensicsRepository.isDemoSession(session.id.toString()) || session.chargerName.equals("Unknown charger", ignoreCase = true)
 
     ForensicsCard(containerColor = cardBg) {
         Column(

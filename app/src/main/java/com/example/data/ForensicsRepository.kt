@@ -13,11 +13,20 @@ class ForensicsRepository(
 
     companion object {
         val DEMO_SESSION_IDS = setOf("last_night", "tuesday_night", "monday_night", "sunday_night")
+
+        fun isDemoSession(sessionId: String): Boolean = sessionId in DEMO_SESSION_IDS
     }
 
-    private val _isDemoData = MutableStateFlow(true)
+    private val _isDemoData = MutableStateFlow(false)
     val isDemoData: StateFlow<Boolean> = _isDemoData.asStateFlow()
     val isDemoDataValue: Boolean get() = _isDemoData.value
+
+    suspend fun refreshDemoFlag() {
+        val currentSessions = dao.getAllDiagnosticSessions().first()
+        _isDemoData.value = currentSessions.any { session ->
+            session.id in DEMO_SESSION_IDS || session.overallConfidence.contains("Demo", ignoreCase = true)
+        }
+    }
 
     val diagnosticSessions: Flow<List<DiagnosticSessionEntity>> = dao.getAllDiagnosticSessions()
     val allTimelineEvents: Flow<List<TimelineEventEntity>> = dao.getAllTimelineEvents()

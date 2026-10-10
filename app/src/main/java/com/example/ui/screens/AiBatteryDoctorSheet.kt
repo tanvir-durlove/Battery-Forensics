@@ -128,7 +128,7 @@ fun AiBatteryDoctorSheet(
                     modifier = Modifier.size(15.dp)
                 )
                 Text(
-                    text = "Local rule-based engine + Gemini prompt generator. Zero API calls · Private on-device.",
+                    text = stringResource(R.string.ai_doctor_sheet_notice),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = ForensicsPalette.PurplePrimary,
