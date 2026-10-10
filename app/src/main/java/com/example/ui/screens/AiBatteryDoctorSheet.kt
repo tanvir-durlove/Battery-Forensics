@@ -16,12 +16,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,10 +38,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.theme.ForensicsPalette
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -86,20 +93,47 @@ fun AiBatteryDoctorSheet(
                         .padding(end = 8.dp)
                 ) {
                     Text(
-                        text = "AI Battery Doctor",
+                        text = stringResource(R.string.ai_doctor_sheet_title),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = ForensicsPalette.TextPrimary
                     )
                     Text(
-                        text = "Pick a question below to create a ready-to-use battery summary for AI chat",
+                        text = stringResource(R.string.ai_doctor_sheet_subtitle),
                         fontSize = 12.sp,
-                        color = ForensicsPalette.TextSecondary
+                        color = ForensicsPalette.TextSecondary,
+                        lineHeight = 16.sp
                     )
                 }
                 TextButton(onClick = onDismiss) {
                     Text("Close", fontWeight = FontWeight.Bold, color = ForensicsPalette.PurplePrimary)
                 }
+            }
+
+            // Architecture & Privacy Transparency Card: local rule-based engine + zero API cost
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(ForensicsPalette.PurpleSoftTile)
+                    .border(1.dp, ForensicsPalette.PurpleBorder, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = ForensicsPalette.PurplePrimary,
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = "Local rule-based engine + Gemini prompt generator. Zero API calls · Private on-device.",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ForensicsPalette.PurplePrimary,
+                    lineHeight = 15.sp
+                )
             }
 
             FlowRow(
@@ -185,6 +219,14 @@ fun AiBatteryDoctorSheet(
                             color = ForensicsPalette.TextPrimary
                         )
                     }
+
+                    Text(
+                        text = "Ready to paste into Gemini. Your raw telemetry never leaves your device unless you choose to share.",
+                        fontSize = 11.sp,
+                        color = ForensicsPalette.TextSecondary,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
                 }
             }
         }

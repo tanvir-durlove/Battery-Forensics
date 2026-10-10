@@ -44,11 +44,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.BatteryTrackingReceiver
 import com.example.data.AppSelfAudit
 import com.example.ui.ForensicsViewModel
 import com.example.ui.InsightsTimeframe
 import com.example.ui.MainTab
+import com.example.ui.components.AdRetryDialog
 import com.example.ui.components.ForensicsBottomBar
 import com.example.ui.components.ForensicsGuideAndOnboardingModal
 import com.example.ui.components.ForensicsSplashScreen
@@ -124,6 +124,7 @@ fun BatteryForensicsApp(
     val generatedAiDoctorPrompt by viewModel.generatedAiDoctorPrompt.collectAsStateWithLifecycle()
     val statusBannerMessage by viewModel.statusBannerMessage.collectAsStateWithLifecycle()
     val hasSeenOnboarding by viewModel.hasSeenOnboarding.collectAsStateWithLifecycle()
+    val showAdRetryDialog by viewModel.showAdRetryDialog.collectAsStateWithLifecycle()
 
     val activity = context as? Activity
     var showAiDoctorSheet by remember { mutableStateOf(false) }
@@ -154,17 +155,6 @@ fun BatteryForensicsApp(
 
     fun handleUnlockExport() {
         viewModel.requestUnlockExportWithRewardAd(activity = activity)
-    }
-
-    // Event-driven system BroadcastReceiver listening for ACTION_BATTERY_CHANGED (zero continuous polling)
-    DisposableEffect(context) {
-        val receiver = BatteryTrackingReceiver { event ->
-            viewModel.onBatteryBroadcastEvent(event)
-        }
-        BatteryTrackingReceiver.register(context, receiver)
-        onDispose {
-            BatteryTrackingReceiver.unregister(context, receiver)
-        }
     }
 
     // BackHandler on secondary tabs returns to Home tab
@@ -423,6 +413,13 @@ fun BatteryForensicsApp(
     if (showSplashScreen) {
         ForensicsSplashScreen(
             onSplashFinished = { showSplashScreen = false }
+        )
+    }
+
+    if (showAdRetryDialog) {
+        AdRetryDialog(
+            onRetry = { viewModel.retryPendingAd() },
+            onDismiss = { viewModel.dismissAdRetryDialog() }
         )
     }
 }

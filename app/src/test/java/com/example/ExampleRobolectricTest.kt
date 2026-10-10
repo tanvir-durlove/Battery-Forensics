@@ -357,6 +357,24 @@ class ExampleRobolectricTest {
         assertFalse(vm.isAiDoctorSessionUnlocked.value)
         assertFalse(vm.isExportSessionUnlocked.value)
         assertFalse(vm.isDeepBenchmarkUnlocked.value)
+
+        // 6. Verify that on ad failure (load/show failure), feature is NEVER unlocked and retry UI is triggered
+        assertFalse(vm.showAdRetryDialog.value)
+        vm.requestEnterAiDoctor(activity = null, onOpenSheet = {})
+        assertTrue(vm.showAdRetryDialog.value)
+        assertFalse(vm.isAiDoctorSessionUnlocked.value)
+        assertFalse(com.example.data.AiDoctorSessionManager.isUnlocked.value)
+
+        vm.dismissAdRetryDialog()
+        assertFalse(vm.showAdRetryDialog.value)
+
+        vm.requestVideoAd2ChargingBenchmark(activity = null)
+        assertTrue(vm.showAdRetryDialog.value)
+        assertFalse(vm.isDeepBenchmarkUnlocked.value)
+        assertFalse(com.example.data.AiDoctorSessionManager.isDeepBenchmarkUnlocked.value)
+
+        vm.dismissAdRetryDialog()
+        assertFalse(vm.showAdRetryDialog.value)
     }
 
     @Test
@@ -513,13 +531,23 @@ class ExampleRobolectricTest {
         composeTestRule.onNodeWithTag("privacy_policy_back_button").performClick()
         composeTestRule.waitForIdle()
 
-        // 6. Click Unlock AI Doctor in top bar -> unlocks directly without middle popup modal and opens AI Doctor sheet
+        // 6. Click Unlock AI Doctor in top bar -> ad cannot load in test environment, shows retry dialog and never auto-grants
         assertEquals("ca-app-pub-7794111343358988/5415781037", com.example.data.RewardedAdManager.TEST_REWARDED_AD_UNIT_ID)
         assertEquals("ca-app-pub-7794111343358988~5759501161", com.example.data.RewardedAdManager.TEST_ADMOB_APP_ID)
         assertFalse(com.example.data.AiDoctorSessionManager.isUnlocked.value)
         composeTestRule.onNodeWithTag("top_bar_ai_doctor_button").performClick()
         composeTestRule.waitForIdle()
+        assertFalse(com.example.data.AiDoctorSessionManager.isUnlocked.value)
+        composeTestRule.onNodeWithText("The ad couldn't load. Check your connection and try again.").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("ad_retry_button").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("ad_retry_dismiss_button").performClick()
+        composeTestRule.waitForIdle()
+
+        // User earns reward after watching ad, unlocking AI Doctor for the session
+        com.example.data.AiDoctorSessionManager.unlockForCurrentSession()
         assertTrue(com.example.data.AiDoctorSessionManager.isUnlocked.value)
+        composeTestRule.onNodeWithTag("top_bar_ai_doctor_button").performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("ai_doctor_sheet").assertIsDisplayed()
 
         // Click a question to dynamically generate prompt without AI and verify Copy Prompt button

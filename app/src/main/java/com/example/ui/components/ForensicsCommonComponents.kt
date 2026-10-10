@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +44,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -462,67 +466,45 @@ fun InlineForensicsAdBannerCard(
     tagName: String,
     modifier: Modifier = Modifier
 ) {
-    ForensicsCard(
-        modifier = modifier.testTag(tagName),
-        containerColor = ForensicsPalette.CardSurface
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+    var isAdLoaded by remember { mutableStateOf(false) }
+
+    if (RewardedAdManager.isRobolectricTest()) {
+        // In Robolectric automated test environment, preserve existing card tag for test assertions
+        ForensicsCard(
+            modifier = modifier.testTag(tagName),
+            containerColor = ForensicsPalette.CardSurface
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ClassificationBadge(
-                        text = "Ad",
-                        containerColor = ForensicsPalette.SubtleSurfaceAlt,
-                        contentColor = ForensicsPalette.TextSecondary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ClassificationBadge(
+                            text = "Ad",
+                            containerColor = ForensicsPalette.SubtleSurfaceAlt,
+                            contentColor = ForensicsPalette.TextSecondary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = placementLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ForensicsPalette.TextSecondary
+                        )
+                    }
                     Text(
-                        text = placementLabel,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ForensicsPalette.TextSecondary
+                        text = "Sponsored",
+                        fontSize = 10.sp,
+                        color = ForensicsPalette.TextMuted
                     )
                 }
-                Text(
-                    text = "Sponsored",
-                    fontSize = 10.sp,
-                    color = ForensicsPalette.TextMuted
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (!RewardedAdManager.isRobolectricTest()) {
-                AndroidView(
-                    modifier = Modifier.fillMaxWidth(),
-                    factory = { ctx ->
-                        AdView(ctx).apply {
-                            setAdSize(AdSize.BANNER)
-                            adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
-                            adListener = object : com.google.android.gms.ads.AdListener() {
-                                override fun onAdFailedToLoad(loadAdError: com.google.android.gms.ads.LoadAdError) {
-                                    if (loadAdError.code == com.google.android.gms.ads.AdRequest.ERROR_CODE_NO_FILL) {
-                                        post {
-                                            try {
-                                                adUnitId = RewardedAdManager.GOOGLE_SAMPLE_BANNER_ID
-                                                loadAd(AdRequest.Builder().build())
-                                            } catch (_: Throwable) {}
-                                        }
-                                    }
-                                }
-                            }
-                            loadAd(AdRequest.Builder().build())
-                        }
-                    }
-                )
-            } else {
+                Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -537,6 +519,95 @@ fun InlineForensicsAdBannerCard(
                         color = ForensicsPalette.TextSecondary
                     )
                 }
+            }
+        }
+    } else {
+        // Only display banner card if real live ad loaded successfully. No test ad fallbacks.
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .testTag(tagName)
+        ) {
+            if (isAdLoaded) {
+                ForensicsCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = ForensicsPalette.CardSurface
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ClassificationBadge(
+                                    text = "Ad",
+                                    containerColor = ForensicsPalette.SubtleSurfaceAlt,
+                                    contentColor = ForensicsPalette.TextSecondary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = placementLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ForensicsPalette.TextSecondary
+                                )
+                            }
+                            Text(
+                                text = "Sponsored",
+                                fontSize = 10.sp,
+                                color = ForensicsPalette.TextMuted
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth(),
+                            factory = { ctx ->
+                                AdView(ctx).apply {
+                                    setAdSize(AdSize.BANNER)
+                                    adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
+                                    adListener = object : com.google.android.gms.ads.AdListener() {
+                                        override fun onAdLoaded() {
+                                            isAdLoaded = true
+                                        }
+
+                                        override fun onAdFailedToLoad(loadAdError: com.google.android.gms.ads.LoadAdError) {
+                                            isAdLoaded = false
+                                        }
+                                    }
+                                    loadAd(AdRequest.Builder().build())
+                                }
+                            }
+                        )
+                    }
+                }
+            } else {
+                // Invisible preloader container while waiting for real live ad response
+                AndroidView(
+                    modifier = Modifier.size(0.dp),
+                    factory = { ctx ->
+                        AdView(ctx).apply {
+                            setAdSize(AdSize.BANNER)
+                            adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
+                            adListener = object : com.google.android.gms.ads.AdListener() {
+                                override fun onAdLoaded() {
+                                    isAdLoaded = true
+                                }
+
+                                override fun onAdFailedToLoad(loadAdError: com.google.android.gms.ads.LoadAdError) {
+                                    isAdLoaded = false
+                                }
+                            }
+                            loadAd(AdRequest.Builder().build())
+                        }
+                    }
+                )
             }
         }
     }
@@ -668,4 +739,63 @@ fun UsagePermissionCard(
             }
         }
     }
+}
+
+@Composable
+fun AdRetryDialog(
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Ad Unavailable",
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = ForensicsPalette.TextPrimary
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "The ad couldn't load. Check your connection and try again.",
+                    fontSize = 14.sp,
+                    color = ForensicsPalette.TextSecondary,
+                    lineHeight = 19.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ForensicsPalette.BluePrimary,
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.testTag("ad_retry_button")
+            ) {
+                Text(
+                    text = "Retry",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.testTag("ad_retry_dismiss_button")
+            ) {
+                Text(
+                    text = "Cancel",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = ForensicsPalette.TextSecondary
+                )
+            }
+        }
+    )
 }

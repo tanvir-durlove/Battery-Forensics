@@ -242,6 +242,28 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
 
     val rewardedAdState: StateFlow<RewardedAdState> = rewardedAdManager.adState
 
+    // Ad retry dialog state on load or show failure
+    private val _showAdRetryDialog = MutableStateFlow(false)
+    val showAdRetryDialog: StateFlow<Boolean> = _showAdRetryDialog.asStateFlow()
+    private var pendingAdRetryAction: (() -> Unit)? = null
+
+    fun retryPendingAd() {
+        _showAdRetryDialog.value = false
+        val action = pendingAdRetryAction
+        pendingAdRetryAction = null
+        action?.invoke()
+    }
+
+    fun dismissAdRetryDialog() {
+        _showAdRetryDialog.value = false
+        pendingAdRetryAction = null
+    }
+
+    private fun triggerAdRetryDialog(retryAction: () -> Unit) {
+        pendingAdRetryAction = retryAction
+        _showAdRetryDialog.value = true
+    }
+
     // Recommendations — only populated when diagnostic sessions exist
     private val _recommendations = MutableStateFlow<List<EvidenceRecommendation>>(emptyList())
     val recommendations: StateFlow<List<EvidenceRecommendation>> = _recommendations.asStateFlow()
@@ -263,6 +285,8 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     private var activeChargeSessionId: Long = 9001L
     private var hasIncrementedChargeProfileSession: Boolean = false
 
+    private var isBatteryReceiverRegistered: Boolean = false
+
     private val batteryReceiver = BatteryTrackingReceiver { event ->
         onBatteryBroadcastEvent(event)
     }
@@ -272,13 +296,20 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
         refreshTelemetry()
         try {
             BatteryTrackingReceiver.register(getApplication(), batteryReceiver)
+            isBatteryReceiverRegistered = true
         } catch (_: Exception) {
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        BatteryTrackingReceiver.unregister(getApplication(), batteryReceiver)
+        if (isBatteryReceiverRegistered) {
+            try {
+                BatteryTrackingReceiver.unregister(getApplication(), batteryReceiver)
+                isBatteryReceiverRegistered = false
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun onBatteryBroadcastEvent(event: LiveBatteryBroadcastEvent) {
@@ -838,7 +869,12 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
                     onOpenSheet()
                 }
             },
-            onShowInteractiveTestAd = onShowInteractiveTestAd
+            onShowInteractiveTestAd = onShowInteractiveTestAd,
+            onAdLoadOrShowFailed = {
+                triggerAdRetryDialog {
+                    requestEnterAiDoctor(activity, onOpenSheet, onShowInteractiveTestAd)
+                }
+            }
         )
     }
 
@@ -873,6 +909,11 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             rewardType = "export_report_session",
             onRewardEarned = { _, _ ->
                 onExportRewardAdEarnedCallback()
+            },
+            onAdLoadOrShowFailed = {
+                triggerAdRetryDialog {
+                    requestUnlockExportWithRewardAd(activity)
+                }
             }
         )
     }
@@ -919,6 +960,11 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             activity = activity,
             onBenchmarkUnlocked = {
                 onVideoAd2BenchmarkUnlockedCallback()
+            },
+            onAdLoadOrShowFailed = {
+                triggerAdRetryDialog {
+                    requestVideoAd2ChargingBenchmark(activity)
+                }
             }
         )
     }

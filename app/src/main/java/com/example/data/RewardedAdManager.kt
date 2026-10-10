@@ -22,9 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
 enum class RewardedAdState(val label: String) {
-    LOADING("Loading Test Ad..."),
-    READY("Test Ad Ready"),
-    FALLBACK_TEST_READY("Test Ad Ready (Simulator)")
+    LOADING("Loading Ad..."),
+    READY("Ad Ready"),
+    FALLBACK_TEST_READY("Ad Ready")
 }
 
 /**
@@ -223,11 +223,7 @@ class RewardedAdManager(context: Context) {
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         rewardedAd = null
                         isLoadingAd = false
-                        if (unitId != GOOGLE_SAMPLE_REWARDED_ID && loadAdError.code == AdRequest.ERROR_CODE_NO_FILL) {
-                            loadRewardedAd(GOOGLE_SAMPLE_REWARDED_ID)
-                        } else {
-                            _adState.value = RewardedAdState.FALLBACK_TEST_READY
-                        }
+                        _adState.value = RewardedAdState.FALLBACK_TEST_READY
                     }
                 }
             )
@@ -253,9 +249,6 @@ class RewardedAdManager(context: Context) {
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         interstitialVideoAd = null
-                        if (unitId != GOOGLE_SAMPLE_INTERSTITIAL_ID && loadAdError.code == AdRequest.ERROR_CODE_NO_FILL) {
-                            loadInterstitialVideoAd(GOOGLE_SAMPLE_INTERSTITIAL_ID)
-                        }
                     }
                 }
             )
@@ -279,9 +272,6 @@ class RewardedAdManager(context: Context) {
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         rewardedInterstitialVideoAd = null
-                        if (unitId != GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID && loadAdError.code == AdRequest.ERROR_CODE_NO_FILL) {
-                            loadRewardedInterstitialVideoAd(GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID)
-                        }
                     }
                 }
             )
@@ -309,15 +299,16 @@ class RewardedAdManager(context: Context) {
     }
 
     /**
-     * Shows the real Google AdMob full-screen Rewarded Video Ad on a physical device;
-     * on the preview emulator (where WebView video rendering is unavailable), invokes the
-     * verified reward callback directly without any middle popup/modal.
+     * Shows the real Google AdMob full-screen Rewarded Video Ad.
+     * Reward (AI Battery Doctor unlock / Export unlock) is ONLY granted inside onUserEarnedReward()
+     * after the user actually watches the ad. Never auto-granted on load or show failure.
      */
     fun showRewardedAd(
         activity: Activity?,
         rewardType: String = "ai_doctor_session",
         onRewardEarned: (amount: Int, type: String) -> Unit,
-        onShowInteractiveTestAd: (() -> Unit)? = null
+        onShowInteractiveTestAd: (() -> Unit)? = null,
+        onAdLoadOrShowFailed: (() -> Unit)? = null
     ) {
         val currentAd = rewardedAd
         val listener = createEarnedRewardListener(onRewardEarned)
@@ -333,11 +324,8 @@ class RewardedAdManager(context: Context) {
                     loadRewardedAd()
                     if (onShowInteractiveTestAd != null) {
                         onShowInteractiveTestAd()
-                    } else {
-                        listener.onUserEarnedReward(object : RewardItem {
-                            override fun getAmount(): Int = 1
-                            override fun getType(): String = rewardType
-                        })
+                    } else if (onAdLoadOrShowFailed != null) {
+                        onAdLoadOrShowFailed()
                     }
                 }
             }
@@ -348,10 +336,9 @@ class RewardedAdManager(context: Context) {
             onShowInteractiveTestAd()
         } else {
             loadRewardedAd()
-            listener.onUserEarnedReward(object : RewardItem {
-                override fun getAmount(): Int = 1
-                override fun getType(): String = rewardType
-            })
+            if (onAdLoadOrShowFailed != null) {
+                onAdLoadOrShowFailed()
+            }
         }
     }
 
@@ -391,11 +378,13 @@ class RewardedAdManager(context: Context) {
 
     /**
      * Video Ad #2: Shows a Google AdMob full-screen Rewarded Interstitial Video Ad to unlock the
-     * Deep Health & Thermal Stress Benchmark in the Charging tab.
+     * Deep Health & Thermal Stress Benchmark in the Charging tab (ad unit .../3306377034).
+     * Reward is ONLY granted inside onUserEarnedReward. Never auto-granted on load or show failure.
      */
     fun showVideoAd2ChargingBenchmark(
         activity: Activity?,
-        onBenchmarkUnlocked: () -> Unit
+        onBenchmarkUnlocked: () -> Unit,
+        onAdLoadOrShowFailed: (() -> Unit)? = null
     ) {
         val currentRewardedInterstitial = rewardedInterstitialVideoAd
         if (!isVirtualOrEmulatorDevice() && currentRewardedInterstitial != null && activity != null) {
@@ -408,8 +397,9 @@ class RewardedAdManager(context: Context) {
                 override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                     rewardedInterstitialVideoAd = null
                     loadRewardedInterstitialVideoAd()
-                    AiDoctorSessionManager.unlockDeepBenchmarkForCurrentSession()
-                    onBenchmarkUnlocked()
+                    if (onAdLoadOrShowFailed != null) {
+                        onAdLoadOrShowFailed()
+                    }
                 }
             }
             rewardedInterstitialVideoAd = null
@@ -419,8 +409,9 @@ class RewardedAdManager(context: Context) {
             }
         } else {
             loadRewardedInterstitialVideoAd()
-            AiDoctorSessionManager.unlockDeepBenchmarkForCurrentSession()
-            onBenchmarkUnlocked()
+            if (onAdLoadOrShowFailed != null) {
+                onAdLoadOrShowFailed()
+            }
         }
     }
 }
