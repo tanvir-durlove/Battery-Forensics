@@ -1,0 +1,113 @@
+name: Build Signed Release AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-aab:
+    name: Build Signed Release AAB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Configure Android SDK & Licenses (API 36.1)
+        run: |
+          export ANDROID_SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          mkdir -p "$ANDROID_SDK_ROOT/licenses"
+          printf "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n859f317696f67ef3d7f30a50a5560e7834b43903\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c0de7af1a06de9f4b1727b84351f2910\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
+          SDKMANAGER=$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1)
+          if [ -n "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          fi
+
+      - name: Setup Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Prepare .env and upload keystore
+        run: |
+          if [ ! -f .env ]; then
+            if [ -f .env.example ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
+          fi
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "ERROR: KEYSTORE_BASE64 secret is not set. Add it in repo Settings > Secrets and variables > Actions." >&2
+            exit 1
+          fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload-key.jks"
+          keytool -list -keystore "$RUNNER_TEMP/upload-key.jks" -storepass "${{ secrets.STORE_PASSWORD }}" -alias upload > /dev/null
+
+      - name: Build Signed Release AAB
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          gradle :app:bundleRelease --no-daemon --stacktrace
+          cp app/build/outputs/bundle/release/app-release.aab app/build/outputs/bundle/release/Battery-Forensics.aab
+          ls -la app/build/outputs/bundle/release/Battery-Forensics.aab
+
+      - name: Verify AAB signature
+        run: |
+          export ANDROID_SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner -type f 2>/dev/null | head -n 1)
+          "$APKSIGNER" verify --print-certs app/build/outputs/bundle/release/Battery-Forensics.aab | head -5
+
+      - name: Upload AAB to GitHub Actions Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Battery-Forensics-AAB
+          path: app/build/outputs/bundle/release/Battery-Forensics.aab
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publish AAB to GitHub Releases (release-aab)
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: release-aab
+          name: "Battery Forensics — Signed Release AAB"
+          body: |
+            ### 📦 Signed Release AAB (Play Store upload)
+            Download **`Battery-Forensics.aab`** below and upload it to Play Console.
+            - **Commit:** `${{ github.sha }}`
+            - Signed with the upload keystore (`upload` alias).
+          files: app/build/outputs/bundle/release/Battery-Forensics.aab
+          prerelease: true
+
+      - name: Write AAB Build Summary
+        run: |
+          AAB_FILE="app/build/outputs/bundle/release/Battery-Forensics.aab"
+          AAB_SIZE=$(du -h "$AAB_FILE" | cut -f1)
+          AAB_SHA256=$(sha256sum "$AAB_FILE" | cut -d' ' -f1)
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          ## ✅ Battery Forensics Release AAB Built & Signed!
+          | Property | Value |
+          | :--- | :--- |
+          | **File Name** | \`Battery-Forensics.aab\` |
+          | **AAB Size** | \`$AAB_SIZE\` |
+          | **SHA-256** | \`$AAB_SHA256\` |
+          | **Commit** | \`${{ github.sha }}\` |
+
+          ### 📥 Download:
+          1. **Releases** section → \`release-aab\` tag → \`Battery-Forensics.aab\`
+          2. Or **Artifacts** at the bottom of this run summary → \`Battery-Forensics-AAB\`
+
+          ### 🚀 Next: upload this AAB to Play Console (App bundle).
+          EOF
