@@ -50,7 +50,6 @@ class ExampleUnitTest {
         locationState = "3 apps",
         thermalStatusLabel = "Nominal (None)",
         usageAccessGranted = true,
-        fineLocationGranted = false,
         phoneStateGranted = true,
         bluetoothScanGranted = true,
         notificationsGranted = true
@@ -127,29 +126,19 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun `AI Battery Doctor triggers Insufficient Data when Fine Location is denied for 5G query`() = runTest {
+    fun `AI Battery Doctor answers 5G signal queries with on-device network summary`() = runTest {
         val client = AiBatteryDoctorClient()
-        val deniedExchange = client.askForensicQuestion(
+        val exchange = client.askForensicQuestion(
             question = "Is 5G associated with higher drain during my test?",
-            snapshot = sampleSnapshot.copy(fineLocationGranted = false),
+            snapshot = sampleSnapshot,
             selectedSession = sampleSession,
             adbEnabled = false,
             allowCloudAi = false
         )
 
-        assertEquals(ConfidenceLevel.INSUFFICIENT_DATA, deniedExchange.confidence)
-        assertTrue(deniedExchange.isInsufficientData)
-        assertTrue(deniedExchange.dataLimitations.contains("Fine Location"))
-
-        val grantedExchange = client.askForensicQuestion(
-            question = "Is 5G associated with higher drain during my test?",
-            snapshot = sampleSnapshot.copy(fineLocationGranted = true),
-            selectedSession = sampleSession,
-            adbEnabled = false,
-            allowCloudAi = false
-        )
-        assertEquals(ConfidenceLevel.LIKELY, grantedExchange.confidence)
-        assertFalse(grantedExchange.isInsufficientData)
+        assertEquals(ConfidenceLevel.LIKELY, exchange.confidence)
+        assertFalse(exchange.isInsufficientData)
+        assertTrue(exchange.conclusion.contains("Mobile network"))
     }
 
     @Test
