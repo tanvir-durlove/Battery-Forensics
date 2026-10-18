@@ -44,8 +44,12 @@ android {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
+      manifestPlaceholders["admobAppId"] = "ca-app-pub-7794111343358988~5759501161"
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+      manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
