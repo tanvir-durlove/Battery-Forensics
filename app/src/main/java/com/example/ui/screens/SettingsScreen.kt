@@ -317,23 +317,6 @@ fun SettingsScreen(
                             HorizontalDivider(color = ForensicsPalette.DividerColor)
                             Spacer(modifier = Modifier.height(12.dp))
                             PermissionItemRow(
-                                title = "Fine Location",
-                                description = "Cell tower and GPS signal strength",
-                                isGranted = snapshot.fineLocationGranted,
-                                deniedConsequence = "Signal strength data unavailable",
-                                onGrantClick = {
-                                    permissionLauncher.launch(
-                                        arrayOf(
-                                            Manifest.permission.ACCESS_FINE_LOCATION,
-                                            Manifest.permission.ACCESS_COARSE_LOCATION
-                                        )
-                                    )
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = ForensicsPalette.DividerColor)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            PermissionItemRow(
                                 title = "Phone State",
                                 description = "Cellular network type (5G / LTE)",
                                 isGranted = snapshot.phoneStateGranted,
@@ -348,7 +331,7 @@ fun SettingsScreen(
                             PermissionItemRow(
                                 title = "Bluetooth Scan",
                                 description = "Bluetooth device count and activity",
-                                isGranted = snapshot.bluetoothScanGranted && snapshot.fineLocationGranted,
+                                isGranted = snapshot.bluetoothScanGranted,
                                 deniedConsequence = "Bluetooth analysis unavailable",
                                 onGrantClick = {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
