@@ -619,7 +619,7 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
             EvidenceChainStep(
                 stepOrder = 5,
                 observation = "${session.secondaryTitle}: ${session.secondarySubtitle}",
-                classification = if (_liveTelemetry.value.fineLocationGranted) DataClassification.MEASURED else DataClassification.LIMITED,
+                classification = DataClassification.LIMITED,
                 timestampOrDuration = "Observed ${session.weakSignalDuration}"
             ),
             EvidenceChainStep(
