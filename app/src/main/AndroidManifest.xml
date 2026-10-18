@@ -58,10 +58,10 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Google AdMob Application ID (NextGen Tool) -->
+        <!-- Google AdMob Application ID (NextGen Tool): release=production, debug=Google sample -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-7794111343358988~5759501161" />
+            android:value="${admobAppId}" />
         <meta-data
             android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
             android:value="true" />
