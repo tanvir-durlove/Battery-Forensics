@@ -88,7 +88,6 @@ data class LiveTelemetrySnapshot(
     val locationState: String,
     val thermalStatusLabel: String,
     val usageAccessGranted: Boolean,
-    val fineLocationGranted: Boolean,
     val phoneStateGranted: Boolean,
     val bluetoothScanGranted: Boolean,
     val notificationsGranted: Boolean,
