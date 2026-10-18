@@ -369,7 +369,6 @@ class DeviceTelemetryScanner(private val context: Context) {
             false
         }
 
-        val fineLocGranted = isPermissionGranted(Manifest.permission.ACCESS_FINE_LOCATION)
         val phoneGranted = isPermissionGranted(Manifest.permission.READ_PHONE_STATE)
         val btScanGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             isPermissionGranted(Manifest.permission.BLUETOOTH_SCAN)
@@ -436,7 +435,6 @@ class DeviceTelemetryScanner(private val context: Context) {
             locationState = if (locationOn) "On" else "Off",
             thermalStatusLabel = thermalStatusLabel,
             usageAccessGranted = usageGranted,
-            fineLocationGranted = fineLocGranted,
             phoneStateGranted = phoneGranted,
             bluetoothScanGranted = btScanGranted,
             notificationsGranted = notifGranted,
@@ -1029,7 +1027,7 @@ class DeviceTelemetryScanner(private val context: Context) {
             batteryImpactEstimate = "< 0.1% / 24h",
             activeWakelocksCount = 0,
             backgroundCpuUsage = "0.0%",
-            thermalContribution = "Zero Heat (Passive OS Broadcast Listener)",
+            thermalContribution = "Zero Heat (Passive OS Listener)",
             ramUsageMb = usedRamMb,
             isSafeVerdict = true,
             verdictSummary = "Verified: Battery Forensics did not cause observed battery drain or thermal overheating."
