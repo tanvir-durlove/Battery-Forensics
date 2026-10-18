@@ -96,11 +96,7 @@ class AiBatteryDoctorClient {
             } else {
                 append("• ADB Advanced Mode is Enabled (wakelock inspection active).\n")
             }
-            if (!snapshot.fineLocationGranted) {
-                append("• Fine Location permission is Denied (granular cellular RSRP dBm signal strength unavailable).")
-            } else {
-                append("• Fine Location permission is Granted (cellular signal strength correlation active).")
-            }
+            append("• Granular cellular RSRP dBm signal strength is not collected (cellular state is tracked as connected/searching + network generation only).")
         }
 
         return """
@@ -160,36 +156,19 @@ PLEASE PROVIDE:
         val q = question.lowercase(Locale.getDefault())
         return when {
             q.contains("5g") || q.contains("lte") || q.contains("signal") || q.contains("network") -> {
-                if (!snapshot.fineLocationGranted) {
-                    AiDoctorExchange(
-                        question = question,
-                        conclusion = "On-Device Telemetry Summary: Cellular state is ${snapshot.mobileState} and Wi-Fi is ${snapshot.wifiState}. Unlock and copy the Gemini prompt below for a full radio power breakdown.",
-                        evidencePoints = listOf(
-                            "Live network state: Wi-Fi ${snapshot.wifiState} · Mobile ${snapshot.mobileState}.",
-                            "Fine Location permission is currently Denied, limiting cell-tower dBm logging.",
-                            "Session '${session.title}' recorded ${session.secondaryTitle}: ${session.secondarySubtitle}."
-                        ),
-                        supportingData = "Live battery: ${snapshot.batteryPercent}% · Voltage: ${snapshot.voltageVolts}V · Temp: ${snapshot.temperatureCelsius}°C",
-                        primaryContributor = "Cellular & Network Radio State",
-                        confidence = ConfidenceLevel.INSUFFICIENT_DATA,
-                        dataLimitations = "Fine Location permission is needed for granular cellular dBm signal strength.",
-                        isInsufficientData = true
-                    )
-                } else {
-                    AiDoctorExchange(
-                        question = question,
-                        conclusion = "On-Device Telemetry Summary: Mobile network (${snapshot.mobileState}) and Wi-Fi (${snapshot.wifiState}) metrics packaged for external Gemini analysis.",
-                        evidencePoints = listOf(
-                            "Live network state: Wi-Fi ${snapshot.wifiState} · Mobile ${snapshot.mobileState}.",
-                            "Session '${session.title}' logged ${session.drainPercent}% drain (${session.startBatteryPercent}% → ${session.endBatteryPercent}%).",
-                            "Secondary factor: ${session.secondaryTitle} (${session.secondarySubtitle})."
-                        ),
-                        supportingData = "Measured battery level: ${snapshot.batteryPercent}% · Rate: ${snapshot.drainRateText}",
-                        primaryContributor = "${session.secondaryTitle} (${session.secondarySubtitle})",
-                        confidence = ConfidenceLevel.LIKELY,
-                        dataLimitations = "Android Standard Mode does not expose exact modem mAh attribution."
-                    )
-                }
+                AiDoctorExchange(
+                    question = question,
+                    conclusion = "On-Device Telemetry Summary: Mobile network (${snapshot.mobileState}) and Wi-Fi (${snapshot.wifiState}) metrics packaged for external Gemini analysis.",
+                    evidencePoints = listOf(
+                        "Live network state: Wi-Fi ${snapshot.wifiState} · Mobile ${snapshot.mobileState}.",
+                        "Session '${session.title}' logged ${session.drainPercent}% drain (${session.startBatteryPercent}% → ${session.endBatteryPercent}%).",
+                        "Secondary factor: ${session.secondaryTitle} (${session.secondarySubtitle})."
+                    ),
+                    supportingData = "Measured battery level: ${snapshot.batteryPercent}% · Rate: ${snapshot.drainRateText}",
+                    primaryContributor = "${session.secondaryTitle} (${session.secondarySubtitle})",
+                    confidence = ConfidenceLevel.LIKELY,
+                    dataLimitations = "Android Standard Mode does not expose exact modem mAh attribution."
+                )
             }
             q.contains("hot") || q.contains("temp") || q.contains("warm") || q.contains("heat") -> {
                 AiDoctorExchange(
