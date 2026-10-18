@@ -3,6 +3,7 @@ package com.example.data
 import android.app.Activity
 import android.content.Context
 import android.os.Build
+import com.nextgen.batteryforensics.BuildConfig
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -150,6 +151,21 @@ class RewardedAdManager(context: Context) {
         const val GOOGLE_SAMPLE_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
         const val GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/5354046379"
 
+        // Debug-aware ad unit selection: Google sample (test) ads in debug builds,
+        // real production ad units in release builds. Protects the AdMob account
+        // from invalid activity during development/testing.
+        fun rewardedAdUnitId(): String =
+            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_REWARDED_ID else REWARDED_AD_UNIT_ID
+
+        fun interstitialAdUnitId(): String =
+            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_INTERSTITIAL_ID else INTERSTITIAL_AD_UNIT_ID
+
+        fun rewardedInterstitialAdUnitId(): String =
+            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID else REWARDED_INTERSTITIAL_AD_UNIT_ID
+
+        fun bannerAdUnitId(): String =
+            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_BANNER_ID else BANNER_AD_UNIT_ID
+
         // Compatibility constants for test suites and legacy references
         const val TEST_ADMOB_APP_ID = ADMOB_APP_ID
         const val TEST_REWARDED_AD_UNIT_ID = REWARDED_AD_UNIT_ID
@@ -199,7 +215,7 @@ class RewardedAdManager(context: Context) {
         }
     }
 
-    fun loadRewardedAd(unitId: String = TEST_REWARDED_AD_UNIT_ID) {
+    fun loadRewardedAd(unitId: String = rewardedAdUnitId()) {
         if (isRobolectricTest()) {
             _adState.value = RewardedAdState.READY
             return
@@ -234,7 +250,7 @@ class RewardedAdManager(context: Context) {
         }
     }
 
-    fun loadInterstitialVideoAd(unitId: String = TEST_VIDEO_INTERSTITIAL_AD_UNIT_ID) {
+    fun loadInterstitialVideoAd(unitId: String = interstitialAdUnitId()) {
         if (isRobolectricTest() || interstitialVideoAd != null) return
         try {
             val adRequest = AdRequest.Builder().build()
@@ -257,7 +273,7 @@ class RewardedAdManager(context: Context) {
         }
     }
 
-    fun loadRewardedInterstitialVideoAd(unitId: String = TEST_VIDEO_REWARDED_INTERSTITIAL_AD_UNIT_ID) {
+    fun loadRewardedInterstitialVideoAd(unitId: String = rewardedInterstitialAdUnitId()) {
         if (isRobolectricTest() || rewardedInterstitialVideoAd != null) return
         try {
             val adRequest = AdRequest.Builder().build()
