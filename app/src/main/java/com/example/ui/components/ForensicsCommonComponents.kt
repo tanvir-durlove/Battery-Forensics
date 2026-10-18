@@ -571,7 +571,7 @@ fun InlineForensicsAdBannerCard(
                             factory = { ctx ->
                                 AdView(ctx).apply {
                                     setAdSize(AdSize.BANNER)
-                                    adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
+                                    adUnitId = RewardedAdManager.bannerAdUnitId()
                                     adListener = object : com.google.android.gms.ads.AdListener() {
                                         override fun onAdLoaded() {
                                             isAdLoaded = true
@@ -594,7 +594,7 @@ fun InlineForensicsAdBannerCard(
                     factory = { ctx ->
                         AdView(ctx).apply {
                             setAdSize(AdSize.BANNER)
-                            adUnitId = RewardedAdManager.BANNER_AD_UNIT_ID
+                            adUnitId = RewardedAdManager.bannerAdUnitId()
                             adListener = object : com.google.android.gms.ads.AdListener() {
                                 override fun onAdLoaded() {
                                     isAdLoaded = true
