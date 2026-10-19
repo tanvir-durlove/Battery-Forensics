@@ -3,7 +3,6 @@ package com.example.data
 import android.app.Activity
 import android.content.Context
 import android.os.Build
-import com.nextgen.batteryforensics.BuildConfig
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
