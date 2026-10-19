@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.AppSelfAudit
+import com.example.data.MorningReportWorker
 import com.example.ui.ForensicsViewModel
 import com.example.ui.InsightsTimeframe
 import com.example.ui.MainTab
@@ -70,6 +71,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        try {
+            // Retention engine: daily ~8am overnight-drain report (idempotent).
+            MorningReportWorker.schedule(this)
+} catch (_: Exception) {
+}
         setContent {
             MyApplicationTheme {
                 BatteryForensicsApp()
