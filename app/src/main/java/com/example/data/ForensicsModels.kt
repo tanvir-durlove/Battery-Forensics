@@ -111,7 +111,12 @@ data class LiveTelemetrySnapshot(
     val liveInstantDrainRatePerHr: Float = 0f,
     val activeDischargingMinutes: Int = 0,
     val standbyDischargingMinutes: Int = 0,
-    val drainMonitorStatusText: String = "Monitoring active & standby discharge"
+    val drainMonitorStatusText: String = "Monitoring active & standby discharge",
+    // Instant verdict banner (retention hook). Defaults keep existing call sites compiling.
+    val verdictText: String = "",
+    val verdictTone: String = "good", // "good" | "warning"
+    // Morning drain report card (retention engine): today's overnight summary, if any.
+    val morningReportText: String? = null
 )
 
 data class ActivityEstimateItem(
