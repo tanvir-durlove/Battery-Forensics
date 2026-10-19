@@ -104,6 +104,11 @@ class DeviceTelemetryScanner(private val context: Context) {
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
         val rawPercent = if (level >= 0 && scale > 0) ((level * 100f) / scale).roundToInt().coerceIn(0, 100) else 0
 
+        // First-run baseline ONLY. UnplugTrackingReceiver (manifest-registered) resets
+        // this baseline on EVERY power disconnect, so the drain-rate formula below
+        // measures discharge-only drain since unplug. Do NOT refresh this baseline
+        // anywhere else (e.g. on foreground transitions): the receiver is the single
+        // source of truth because it fires even when the app is closed.
         if (!prefs.contains("initial_battery_percent") && rawPercent > 0) {
             prefs.edit()
                 .putInt("initial_battery_percent", rawPercent)
@@ -286,14 +291,59 @@ class DeviceTelemetryScanner(private val context: Context) {
             else -> "Calibrating..."
         }
 
+        // Instant verdict banner (retention hook): one-line verdict from already-measured data.
+        // Priority: high standby drain -> degraded health -> overheating -> all good.
+        // No new measurement here — only reuses values computed above in this function.
+        val verdictTone: String
+        val verdictText: String
+        when {
+            !isCharging && standbyDrainPerHr > 1.5f && standbyMins >= 30 -> {
+                verdictTone = "warning"
+                verdictText = "High background drain — see what's responsible"
+            }
+            health != BatteryManager.BATTERY_HEALTH_GOOD -> {
+                verdictTone = "warning"
+                verdictText = "Battery health: $healthLabel"
+            }
+            tempCelsius >= 40f -> {
+                verdictTone = "warning"
+                verdictText = "Running hot — let it cool down"
+            }
+            else -> {
+                verdictTone = "good"
+                verdictText = "Battery looks healthy"
+            }
+        }
+
+        // Morning report card (retention engine): today's overnight summary, saved by
+        // MorningReportWorker. Null when no report was produced today.
+        val morningReportText: String? = run {
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(nowMs))
+            if (prefs.getString("morning_report_day", "") == today) {
+                prefs.getString("morning_report_text", null)
+            } else null
+        }
+
         val trackedMinutes = ((nowMs - firstSeenMs) / 60_000L).coerceAtLeast(0L)
+        // Real unplug time from UnplugTrackingReceiver (manifest-registered, fires even
+        // when the app is closed). Falls back to tracked time if no unplug recorded yet.
+        val lastUnplugMs = prefs.getLong("last_unplug_ms", 0L)
         val sinceChargeText = when {
             isCharging -> "Charging now"
+            lastUnplugMs > 0L -> {
+                val mins = ((nowMs - lastUnplugMs) / 60_000L).coerceAtLeast(0L)
+                if (mins < 60L) "${mins}m" else "${mins / 60}h ${mins % 60}m"
+            }
             trackedMinutes < 2L -> "Just started"
             trackedMinutes < 60L -> "${trackedMinutes}m tracked"
             else -> "${trackedMinutes / 60}h ${trackedMinutes % 60}m"
         }
 
+        // Time-left is estimated from the DISCHARGE-ONLY drain rate: the baseline
+        // (initial_battery_percent/ms) is reset on every unplug by UnplugTrackingReceiver.
+        // The old formula averaged across charging sessions because the baseline was never
+        // reset, producing absurd rates (0.1%/hr over 13 days) — never reintroduce a
+        // persistent baseline. The 99h cap is display-only: show "~99+h", never "~99h".
         val estRemainingText = when {
             isCharging -> {
                 val remainMs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -308,12 +358,12 @@ class DeviceTelemetryScanner(private val context: Context) {
             }
             elapsedHours >= 0.25f && pctDrop > 0 -> {
                 val rate = (pctDrop / elapsedHours).coerceAtLeast(0.2f)
-                val hoursLeft = (rawPercent / rate).roundToInt().coerceAtMost(99)
-                "~${hoursLeft}h"
+                val rawHoursLeft = (rawPercent / rate).roundToInt()
+                if (rawHoursLeft > 99) "~99+h" else "~${rawHoursLeft}h"
             }
             activeDrainPerHr > 0.2f -> {
-                val hoursLeft = (rawPercent / activeDrainPerHr).roundToInt().coerceAtMost(99)
-                "~${hoursLeft}h"
+                val rawHoursLeft = (rawPercent / activeDrainPerHr).roundToInt()
+                if (rawHoursLeft > 99) "~99+h" else "~${rawHoursLeft}h"
             }
             else -> "Learning..."
         }
@@ -458,7 +508,10 @@ class DeviceTelemetryScanner(private val context: Context) {
                 isCharging -> "Plugged in · Drain monitor paused"
                 screenOn -> "Tracking screen-on battery use"
                 else -> "Tracking screen-off standby drain"
-            }
+            },
+            verdictText = verdictText,
+            verdictTone = verdictTone,
+            morningReportText = morningReportText
         )
     }
 
@@ -869,7 +922,7 @@ class DeviceTelemetryScanner(private val context: Context) {
             initial = "M",
             appName = "Social & Messaging",
             packageName = "com.facebook.orca",
-            hasLocationBadge = true,
+            hasLocationBadge = false,
             foregroundDurationLabel = "22m",
             backgroundEventsCount = 84,
             impactLevel = "High",
@@ -881,7 +934,7 @@ class DeviceTelemetryScanner(private val context: Context) {
             initial = "C",
             appName = "Camera & Gallery",
             packageName = "com.google.android.GoogleCamera",
-            hasLocationBadge = true,
+            hasLocationBadge = false,
             foregroundDurationLabel = "35m",
             backgroundEventsCount = 12,
             impactLevel = "High",
