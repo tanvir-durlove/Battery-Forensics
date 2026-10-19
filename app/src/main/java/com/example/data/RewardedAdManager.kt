@@ -2,6 +2,7 @@ package com.example.data
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
@@ -150,20 +151,25 @@ class RewardedAdManager(context: Context) {
         const val GOOGLE_SAMPLE_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
         const val GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/5354046379"
 
-        // Debug-aware ad unit selection: Google sample (test) ads in debug builds,
-        // real production ad units in release builds. Protects the AdMob account
-        // from invalid activity during development/testing.
+        // Set once from the host APK's debuggable flag in the init block below.
+        // True for debug builds -> Google sample (test) ads; false for release
+        // builds -> real production ad units. Protects the AdMob account from
+        // invalid activity during development/testing. Uses the APK flag instead
+        // of BuildConfig so it works regardless of BuildConfig generation.
+        @kotlin.jvm.Volatile
+        var isDebugBuild: Boolean = false
+
         fun rewardedAdUnitId(): String =
-            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_REWARDED_ID else REWARDED_AD_UNIT_ID
+            if (isDebugBuild) GOOGLE_SAMPLE_REWARDED_ID else REWARDED_AD_UNIT_ID
 
         fun interstitialAdUnitId(): String =
-            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_INTERSTITIAL_ID else INTERSTITIAL_AD_UNIT_ID
+            if (isDebugBuild) GOOGLE_SAMPLE_INTERSTITIAL_ID else INTERSTITIAL_AD_UNIT_ID
 
         fun rewardedInterstitialAdUnitId(): String =
-            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID else REWARDED_INTERSTITIAL_AD_UNIT_ID
+            if (isDebugBuild) GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID else REWARDED_INTERSTITIAL_AD_UNIT_ID
 
         fun bannerAdUnitId(): String =
-            if (BuildConfig.DEBUG) GOOGLE_SAMPLE_BANNER_ID else BANNER_AD_UNIT_ID
+            if (isDebugBuild) GOOGLE_SAMPLE_BANNER_ID else BANNER_AD_UNIT_ID
 
         // Compatibility constants for test suites and legacy references
         const val TEST_ADMOB_APP_ID = ADMOB_APP_ID
@@ -182,6 +188,7 @@ class RewardedAdManager(context: Context) {
     }
 
     init {
+        isDebugBuild = (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         ensureWebViewCacheDirectories()
         initializeAndPreload()
     }
