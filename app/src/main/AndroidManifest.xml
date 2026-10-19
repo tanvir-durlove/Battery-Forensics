@@ -58,6 +58,17 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Discharge-session tracking: ACTION_POWER_DISCONNECTED is exempt from
+             Android 8+ background broadcast restrictions, so this fires even when
+             the app isn't running. Records last_unplug_ms and resets the drain baseline. -->
+        <receiver
+            android:name=".data.UnplugTrackingReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Google AdMob Application ID (NextGen Tool): release=production, debug=Google sample -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
