@@ -1070,9 +1070,6 @@ class ForensicsViewModel(application: Application) : AndroidViewModel(applicatio
     fun getAdbWakelocks(): List<AdbWakelockEntry> =
         scanner.getAdbWakelockData(_adbModeEnabled.value)
 
-    fun runConsoleCommand(cmd: String): String =
-        scanner.runDiagnosticConsoleCommand(cmd, _liveTelemetry.value, _adbModeEnabled.value)
-
     fun clearBanner() {
         _statusBannerMessage.value = null
     }
