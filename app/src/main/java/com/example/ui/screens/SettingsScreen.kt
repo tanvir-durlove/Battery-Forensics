@@ -804,7 +804,8 @@ fun SettingsScreen(
                             )
                         }
                     }
-                
+                }
+
                 // This App's Battery Impact Card (Screenshot 11)
                 item {
                     ForensicsCard(containerColor = ForensicsPalette.GreenContainer) {
@@ -906,6 +907,7 @@ fun SettingsScreen(
                         }
                     }
                 }
+
                 // Footer App Identity Card (Screenshot 11)
                 item {
                     ForensicsCard {
@@ -1145,7 +1147,7 @@ fun SettingsScreen(
         )
     }
 
-    
+}
 
 @Composable
 private fun SettingsNavTile(
