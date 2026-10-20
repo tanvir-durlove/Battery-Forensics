@@ -1034,7 +1034,7 @@ fun DashboardScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showHealthModal = false }) {
+                TextButton(onClick = { selectedCapability = null }) {
                     Text("Got it")
                 }
             }
