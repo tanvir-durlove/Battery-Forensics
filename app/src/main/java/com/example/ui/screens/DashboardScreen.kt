@@ -143,6 +143,41 @@ fun DashboardScreen(
             }
         }
 
+        // Instant verdict banner (retention hook): one-line verdict, tap -> Drain Detective
+        item {
+            val verdictIsWarning = snapshot.verdictTone == "warning"
+            ForensicsCard(
+                containerColor = if (verdictIsWarning) ForensicsPalette.AmberSoftTile else ForensicsPalette.GreenSoftTile,
+                onClick = { onNavigateToDiagnose() },
+                modifier = Modifier.testTag("verdict_banner")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = snapshot.verdictText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ForensicsPalette.TextPrimary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    ClassificationBadge(
+                        text = if (verdictIsWarning) "Check" else "Good",
+                        containerColor = if (verdictIsWarning) ForensicsPalette.AmberContainer else ForensicsPalette.GreenContainer,
+                        contentColor = if (verdictIsWarning) ForensicsPalette.AmberPrimary else ForensicsPalette.GreenPrimary
+                    )
+                }
+            }
+        }
+
         // Data collection in progress card when battery history is empty
         if (isHistoryEmpty) {
             item {
@@ -182,6 +217,49 @@ fun DashboardScreen(
                             text = "We're learning how your battery behaves as you charge and use your phone. Detailed history, drain speed, and daily summaries will appear here automatically.",
                             fontSize = 13.sp,
                             color = ForensicsPalette.TextPrimary
+                        )
+                    }
+                }
+            }
+        }
+
+        // Morning drain report card (retention engine): today's overnight summary, if any
+        if (snapshot.morningReportText != null) {
+            item {
+                ForensicsCard(
+                    containerColor = ForensicsPalette.BlueSoftTile,
+                    onClick = { onNavigateToDiagnose() },
+                    modifier = Modifier.testTag("morning_report_card")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        ) {
+                            Text(
+                                text = "This morning",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.BluePrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = snapshot.morningReportText,
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextPrimary
+                            )
+                        }
+                        ClassificationBadge(
+                            text = "Report",
+                            containerColor = ForensicsPalette.BlueContainer,
+                            contentColor = ForensicsPalette.BluePrimary
                         )
                     }
                 }
@@ -956,7 +1034,7 @@ fun DashboardScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { selectedCapability = null }) {
+                TextButton(onClick = { showHealthModal = false }) {
                     Text("Got it")
                 }
             }
