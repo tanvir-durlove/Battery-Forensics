@@ -71,6 +71,7 @@ fun DashboardScreen(
     isDemoData: Boolean = false,
     onRefresh: () -> Unit,
     onNavigateToDiagnose: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -140,6 +141,125 @@ fun DashboardScreen(
         if (isDemoData) {
             item {
                 DemoDataBanner()
+            }
+        }
+
+        // "Right Now" live culprit card — the retention hook. FIRST card, must be
+        // noticeable. Answers "what's eating my battery RIGHT NOW".
+        // Honesty: the foreground app at open time is always this app, so the card
+        // shows the top app by MEASURED foreground time this discharge session
+        // (snapshot.rightNowCulpritText) — never the current foreground app, never
+        // invented attribution. Hidden while charging (no discharge to attribute).
+        if (!snapshot.isCharging) {
+            item {
+                val nowRate = if (snapshot.liveInstantDrainRatePerHr > 0f) snapshot.liveInstantDrainRatePerHr
+                else snapshot.activeDrainRatePerHr
+                val isHighDrain = nowRate >= 15f
+                val isElevatedDrain = nowRate >= 5f
+                val isMeasuring = nowRate <= 0f
+                ForensicsCard(
+                    containerColor = when {
+                        isHighDrain -> ForensicsPalette.RedContainer
+                        isElevatedDrain -> ForensicsPalette.AmberSoftTile
+                        else -> ForensicsPalette.CardSurface
+                    },
+                    onClick = { onNavigateToDiagnose() },
+                    modifier = Modifier.testTag("right_now_card")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "RIGHT NOW",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
+                                color = ForensicsPalette.TextSecondary
+                            )
+                            ClassificationBadge(
+                                text = when {
+                                    isMeasuring -> "Measuring"
+                                    isHighDrain -> "High drain"
+                                    isElevatedDrain -> "Elevated"
+                                    else -> "Normal"
+                                },
+                                containerColor = when {
+                                    isMeasuring -> ForensicsPalette.GrayContainer
+                                    isHighDrain -> ForensicsPalette.RedContainer
+                                    isElevatedDrain -> ForensicsPalette.AmberContainer
+                                    else -> ForensicsPalette.GreenContainer
+                                },
+                                contentColor = when {
+                                    isMeasuring -> ForensicsPalette.GrayPrimary
+                                    isHighDrain -> ForensicsPalette.RedPrimary
+                                    isElevatedDrain -> ForensicsPalette.AmberPrimary
+                                    else -> ForensicsPalette.GreenPrimary
+                                }
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = snapshot.drainRateText,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ForensicsPalette.TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        if (snapshot.rightNowCulpritText != null) {
+                            Text(
+                                text = "Top ${snapshot.rightNowCulpritText}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ForensicsPalette.TextPrimary
+                            )
+                        } else if (!snapshot.usageAccessGranted) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(ForensicsPalette.SubtleSurface)
+                                    .clickable { onNavigateToSettings() }
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Grant Usage Access to see which app is eating battery",
+                                    fontSize = 13.sp,
+                                    color = ForensicsPalette.TextSecondary,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
+                                )
+                                Text(
+                                    text = "→",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ForensicsPalette.BluePrimary
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Collecting usage data…",
+                                fontSize = 13.sp,
+                                color = ForensicsPalette.TextSecondary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Screen ${snapshot.screenState} · tap for full analysis",
+                            fontSize = 12.sp,
+                            color = ForensicsPalette.TextMuted
+                        )
+                    }
+                }
             }
         }
 
@@ -966,7 +1086,7 @@ fun DashboardScreen(
                     )
                     Text(
                         text = "• Factory Capacity: ${if (snapshot.designCapacityMah > 0) "${snapshot.designCapacityMah} mAh" else "Waiting for first charge"}\n" +
-                            "• Usable Capacity: ${if (cappedEstMah > 0) "~$cappedEstMah mAh (averaged over ${snapshot.smoothedCapacitySampleCount} charges)" else "Still learning — charge your phone normally"}\n" +
+                            "• Usable Capacity: ${if (cappedEstMah > 0) "~${cappedEstMah} mAh (averaged over ${snapshot.smoothedCapacitySampleCount} charges)" else "Still learning — charge your phone normally"}\n" +
                             "• Charge Cycles: $cycleLine\n" +
                             "• Temperature: ${snapshot.temperatureStatus} (${snapshot.temperatureCelsius}°C live)\n" +
                             "• Battery Condition: ${snapshot.healthLabel}",
