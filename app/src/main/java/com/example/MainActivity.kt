@@ -60,7 +60,6 @@ import com.example.ui.screens.AiBatteryDoctorSheet
 import com.example.ui.screens.ChargingScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.DiagnoseScreen
-import com.example.ui.screens.GitHubApkBuildScreen
 import com.example.ui.screens.InsightsScreen
 import com.example.ui.screens.PrivacyPolicyScreen
 import com.example.ui.screens.SettingsScreen
@@ -138,7 +137,6 @@ fun BatteryForensicsApp(
     var showSplashScreen by rememberSaveable { mutableStateOf(!isRobolectric) }
     var showGuideModal by rememberSaveable { mutableStateOf(false) }
     var showPrivacyPolicyScreen by rememberSaveable { mutableStateOf(false) }
-    var showGitHubBuildScreen by rememberSaveable { mutableStateOf(false) }
     var guideModalInitialTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedStatTopic by remember { mutableStateOf<StatGuideTopic?>(null) }
 
@@ -344,7 +342,6 @@ fun BatteryForensicsApp(
                             onExportReport = { fmt -> viewModel.exportReport(fmt) },
                             onUnlockExport = { handleUnlockExport() },
                             onDeleteAllData = { reseed -> viewModel.deleteAllUserData(reseed) },
-                            onRunConsoleCommand = { cmd -> viewModel.runConsoleCommand(cmd) },
                             onPermissionsUpdated = { viewModel.refreshTelemetry() },
                             isExportUnlocked = isExportSessionUnlocked,
                             onOpenOnboardingTour = {
@@ -353,9 +350,6 @@ fun BatteryForensicsApp(
                             },
                             onOpenPrivacyPolicy = {
                                 showPrivacyPolicyScreen = true
-                            },
-                            onOpenGitHubBuild = {
-                                showGitHubBuildScreen = true
                             },
                             onShowTopicGuide = { selectedStatTopic = it }
                         )
@@ -411,12 +405,6 @@ fun BatteryForensicsApp(
     if (showPrivacyPolicyScreen) {
         PrivacyPolicyScreen(
             onNavigateBack = { showPrivacyPolicyScreen = false }
-        )
-    }
-
-    if (showGitHubBuildScreen) {
-        GitHubApkBuildScreen(
-            onNavigateBack = { showGitHubBuildScreen = false }
         )
     }
 
