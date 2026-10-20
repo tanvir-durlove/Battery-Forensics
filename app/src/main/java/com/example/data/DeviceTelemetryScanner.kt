@@ -324,6 +324,21 @@ class DeviceTelemetryScanner(private val context: Context) {
             } else null
         }
 
+        // Overnight culprit card: top-3 apps from the morning report, each "Name ~X%".
+        // Empty when no report was produced today.
+        val morningReportTop3: List<String> = run {
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(nowMs))
+            if (prefs.getString("morning_report_day", "") == today) {
+                prefs.getString("morning_report_top3", "").orEmpty()
+                    .split("|").map { it.trim() }.filter { it.isNotEmpty() }.take(3)
+            } else emptyList()
+        }
+
+        // "Right Now" culprit card: top app by measured foreground time this discharge
+        // session. See queryTopAppSinceUnplug() for why session-top (not current
+        // foreground app) is the honest answer.
+        val rightNowCulpritText: String? = queryTopAppSinceUnplug(nowMs)
+
         val trackedMinutes = ((nowMs - firstSeenMs) / 60_000L).coerceAtLeast(0L)
         // Real unplug time from UnplugTrackingReceiver (manifest-registered, fires even
         // when the app is closed). Falls back to tracked time if no unplug recorded yet.
@@ -511,7 +526,9 @@ class DeviceTelemetryScanner(private val context: Context) {
             },
             verdictText = verdictText,
             verdictTone = verdictTone,
-            morningReportText = morningReportText
+            morningReportText = morningReportText,
+            rightNowCulpritText = rightNowCulpritText,
+            morningReportTop3 = morningReportTop3
         )
     }
 
@@ -955,6 +972,49 @@ class DeviceTelemetryScanner(private val context: Context) {
             estimatedDrainPct = 7.4f
         )
     )
+
+    /**
+     * "Right Now" culprit — honest version. Returns the top app by MEASURED foreground
+     * time in the current discharge session [last_unplug_ms, now] (or the last 6h when
+     * no unplug was recorded yet — labeled as such).
+     *
+     * Why not "current foreground app": when the user opens this screen, the foreground
+     * app IS Battery Forensics, so that answer would always be useless. Session-top is
+     * the real answer to "what's eating my battery".
+     *
+     * Returns a preformatted string like "YouTube · 2h 14m on screen since unplug",
+     * or null when Usage Access isn't granted / no app has meaningful foreground time.
+     * Never invents attribution: usage stats are a measured signal.
+     */
+    private fun queryTopAppSinceUnplug(nowMs: Long): String? {
+        if (!isUsageAccessGranted()) return null
+        return try {
+            val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+                ?: return null
+            val pm = context.packageManager
+            val lastUnplugMs = prefs.getLong("last_unplug_ms", 0L)
+            val (start, windowLabel) = if (lastUnplugMs > 0L) {
+                lastUnplugMs to "since unplug"
+            } else {
+                (nowMs - 6 * 3_600_000L) to "in the last 6h"
+            }
+            val top = usm.queryAndAggregateUsageStats(start, nowMs).values
+                .filter { it.totalTimeInForeground >= 60_000L && it.packageName != context.packageName }
+                .maxByOrNull { it.totalTimeInForeground }
+                ?: return null
+            val appLabel = try {
+                val appInfo: ApplicationInfo = pm.getApplicationInfo(top.packageName, 0)
+                pm.getApplicationLabel(appInfo).toString()
+            } catch (_: Exception) {
+                top.packageName.substringAfterLast('.').replaceFirstChar { it.uppercase() }
+            }
+            val fgMinutes = (top.totalTimeInForeground / 60_000L).toInt().coerceAtLeast(1)
+            val fgLabel = if (fgMinutes >= 60) "${fgMinutes / 60}h ${fgMinutes % 60}m" else "${fgMinutes}m"
+            "$appLabel · $fgLabel on screen $windowLabel"
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     /**
      * Queries real per-app usage statistics from UsageStatsManager over the last 24 hours.
