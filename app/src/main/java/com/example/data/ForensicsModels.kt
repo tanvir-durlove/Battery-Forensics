@@ -116,7 +116,12 @@ data class LiveTelemetrySnapshot(
     val verdictText: String = "",
     val verdictTone: String = "good", // "good" | "warning"
     // Morning drain report card (retention engine): today's overnight summary, if any.
-    val morningReportText: String? = null
+    val morningReportText: String? = null,
+    // "Right Now" culprit card: top app by measured foreground time this discharge
+    // session, preformatted (e.g. "YouTube · 2h 14m on screen since unplug").
+    val rightNowCulpritText: String? = null,
+    // Overnight culprit card: top-3 apps from the morning report, each "Name ~X%".
+    val morningReportTop3: List<String> = emptyList()
 )
 
 data class ActivityEstimateItem(
