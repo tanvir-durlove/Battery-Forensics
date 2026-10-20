@@ -87,18 +87,15 @@ fun SettingsScreen(
     onExportReport: (String) -> Unit,
     onUnlockExport: () -> Unit = {},
     onDeleteAllData: (Boolean) -> Unit,
-    onRunConsoleCommand: (String) -> String,
     onPermissionsUpdated: () -> Unit,
     isExportUnlocked: Boolean = false,
     onOpenOnboardingTour: () -> Unit = {},
     onOpenPrivacyPolicy: () -> Unit = {},
-    onOpenGitHubBuild: () -> Unit = {},
     onShowTopicGuide: (StatGuideTopic) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var showDeleteConfirmModal by remember { mutableStateOf(false) }
-    var activeDeveloperTool by remember { mutableStateOf<String?>(null) }
     var expandedFaqIndex by remember { mutableIntStateOf(0) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -807,71 +804,7 @@ fun SettingsScreen(
                             )
                         }
                     }
-                }
-
-                // DEVELOPER DIAGNOSTICS Card (Screenshot 11)
-                item {
-                    ForensicsCard {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp)
-                        ) {
-                            Text(
-                                text = "DEVELOPER DIAGNOSTICS",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp,
-                                color = ForensicsPalette.TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            val devItems = listOf(
-                                "Raw battery statistics",
-                                "Battery history log",
-                                "Event log viewer",
-                                "Diagnostic console",
-                                "Raw data export"
-                            )
-                            devItems.forEachIndexed { index, itemTitle ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            if (itemTitle == "Raw data export") {
-                                                if (isExportUnlocked) {
-                                                    onExportReport("JSON")
-                                                } else {
-                                                    onUnlockExport()
-                                                }
-                                            } else {
-                                                activeDeveloperTool = itemTitle
-                                            }
-                                        }
-                                        .padding(vertical = 13.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = itemTitle,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = ForensicsPalette.TextPrimary
-                                    )
-                                    Text(
-                                        text = "›",
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = ForensicsPalette.TextSecondary
-                                    )
-                                }
-                                if (index < devItems.lastIndex) {
-                                    HorizontalDivider(color = ForensicsPalette.DividerColor)
-                                }
-                            }
-                        }
-                    }
-                }
-
+                
                 // This App's Battery Impact Card (Screenshot 11)
                 item {
                     ForensicsCard(containerColor = ForensicsPalette.GreenContainer) {
@@ -973,60 +906,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-
-                // GitHub Actions APK Build & Download Card
-                item {
-                    ForensicsCard(containerColor = ForensicsPalette.CardSurface) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "GitHub APK Builder & CI/CD",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ForensicsPalette.TextPrimary
-                                )
-                                ClassificationBadge(
-                                    text = "Automated",
-                                    containerColor = ForensicsPalette.GreenContainer,
-                                    contentColor = ForensicsPalette.GreenPrimary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Build and download the installable Android APK in the cloud using GitHub Actions with zero local SDK installation.",
-                                fontSize = 12.sp,
-                                color = ForensicsPalette.TextSecondary,
-                                lineHeight = 17.sp
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = onOpenGitHubBuild,
-                                colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.GreenPrimary),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("open_github_build_button")
-                            ) {
-                                Text(
-                                    text = "Build APK on GitHub →",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
-
                 // Footer App Identity Card (Screenshot 11)
                 item {
                     ForensicsCard {
@@ -1266,55 +1145,7 @@ fun SettingsScreen(
         )
     }
 
-    activeDeveloperTool?.let { toolName ->
-        var consoleCmd by remember { mutableStateOf("dumpsys batterystats") }
-        val output = remember(toolName, consoleCmd, adbModeEnabled) {
-            when (toolName) {
-                "Raw battery statistics" -> onRunConsoleCommand("batterystats")
-                "Battery history log" -> onRunConsoleCommand("deviceidle")
-                "Event log viewer" -> onRunConsoleCommand("thermal")
-                else -> onRunConsoleCommand(consoleCmd)
-            }
-        }
-
-        AlertDialog(
-            onDismissRequest = { activeDeveloperTool = null },
-            title = { Text(toolName, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (toolName == "Diagnostic console") {
-                        OutlinedTextField(
-                            value = consoleCmd,
-                            onValueChange = { consoleCmd = it },
-                            label = { Text("Command (batterystats / deviceidle / thermal)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(ForensicsPalette.TextPrimary)
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = output,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = ForensicsPalette.GreenContainer
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { activeDeveloperTool = null }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-}
+    
 
 @Composable
 private fun SettingsNavTile(
