@@ -240,6 +240,7 @@ fun BatteryForensicsApp(
                             isDemoData = isDemoData,
                             onRefresh = { viewModel.refreshTelemetry() },
                             onNavigateToDiagnose = { viewModel.selectTab(MainTab.DIAGNOSE) },
+                            onNavigateToSettings = { viewModel.selectTab(MainTab.SETTINGS) },
                             onShowTopicGuide = { selectedStatTopic = it }
                         )
                     }
