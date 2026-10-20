@@ -343,7 +343,10 @@ fun DashboardScreen(
             }
         }
 
-        // Morning drain report card (retention engine): today's overnight summary, if any
+        // Overnight culprit card: which apps ate battery while the phone was idle.
+        // Replaces the one-line "This morning" summary with a proper top-3 breakdown.
+        // Data is real: total drop from the unplug baseline, top apps from the
+        // usage-stats analysis (estimates, "~"-labeled). Hidden when no report exists.
         if (snapshot.morningReportText != null) {
             item {
                 ForensicsCard(
@@ -351,35 +354,49 @@ fun DashboardScreen(
                     onClick = { onNavigateToDiagnose() },
                     modifier = Modifier.testTag("morning_report_card")
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(18.dp)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = 8.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "This morning",
-                                fontSize = 15.sp,
+                                text = "OVERNIGHT",
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
                                 color = ForensicsPalette.BluePrimary
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            ClassificationBadge(
+                                text = "Report",
+                                containerColor = ForensicsPalette.BlueContainer,
+                                contentColor = ForensicsPalette.BluePrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = snapshot.morningReportText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ForensicsPalette.TextPrimary
+                        )
+                        snapshot.morningReportTop3.forEachIndexed { index, row ->
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = snapshot.morningReportText,
+                                text = "${index + 1}. $row",
                                 fontSize = 13.sp,
                                 color = ForensicsPalette.TextPrimary
                             )
                         }
-                        ClassificationBadge(
-                            text = "Report",
-                            containerColor = ForensicsPalette.BlueContainer,
-                            contentColor = ForensicsPalette.BluePrimary
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Tap for full analysis",
+                            fontSize = 12.sp,
+                            color = ForensicsPalette.TextMuted
                         )
                     }
                 }
@@ -1086,7 +1103,7 @@ fun DashboardScreen(
                     )
                     Text(
                         text = "• Factory Capacity: ${if (snapshot.designCapacityMah > 0) "${snapshot.designCapacityMah} mAh" else "Waiting for first charge"}\n" +
-                            "• Usable Capacity: ${if (cappedEstMah > 0) "~${cappedEstMah} mAh (averaged over ${snapshot.smoothedCapacitySampleCount} charges)" else "Still learning — charge your phone normally"}\n" +
+                            "• Usable Capacity: ${if (cappedEstMah > 0) "~$cappedEstMah mAh (averaged over ${snapshot.smoothedCapacitySampleCount} charges)" else "Still learning — charge your phone normally"}\n" +
                             "• Charge Cycles: $cycleLine\n" +
                             "• Temperature: ${snapshot.temperatureStatus} (${snapshot.temperatureCelsius}°C live)\n" +
                             "• Battery Condition: ${snapshot.healthLabel}",
