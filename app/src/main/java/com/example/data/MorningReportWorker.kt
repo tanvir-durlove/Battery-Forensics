@@ -73,17 +73,20 @@ class MorningReportWorker(
 
         val hours = ((nowMs - lastUnplugMs) / 3_600_000f).coerceAtLeast(0.5f)
         val rate = (dropPct / hours * 10f).roundToInt() / 10f
-        val topCause = findTopCause(ctx)
+        val topCauses = findTopCauses(ctx)
 
-        val summary = if (topCause!= null) {
-            "Overnight: $dropPct% used (${rate}%/hr) · Top: $topCause"
-} else {
-            "Overnight: $dropPct% used (${rate}%/hr)"
-}
-        saveSummary(prefs, today, summary)
+        // Card headline stays clean; the notification keeps the top-1 cause inline.
+        // The dashboard card renders the full top-3 from morning_report_top3.
+        val cardHeadline = "Overnight: $dropPct% used (${rate}%/hr)"
+        val notifyText = if (topCauses.isNotEmpty()) {
+            "$cardHeadline · Top: ${topCauses[0]}"
+        } else {
+            cardHeadline
+        }
+        saveSummary(prefs, today, cardHeadline, topCauses)
 
         if (!notificationsGranted(ctx)) return Result.success()
-        postNotification(ctx, summary)
+        postNotification(ctx, notifyText)
         return Result.success()
 }
 
@@ -94,33 +97,41 @@ class MorningReportWorker(
             status == BatteryManager.BATTERY_STATUS_FULL
 }
 
-    /** Top background consumer from the real usage-stats analysis; null when unavailable. */
-    private fun findTopCause(ctx: Context): String? {
+    /**
+     * Top-3 background consumers from the real usage-stats analysis, each formatted
+     * like "Instagram background (~6%)". Empty when Usage Access isn't granted or no
+     * data. Sorted by the app's established estimatedDrainPct (same numbers the
+     * Drain Detective shows) — these are estimates, labeled with "~" throughout.
+     */
+    private fun findTopCauses(ctx: Context): List<String> {
         return try {
             val scanner = DeviceTelemetryScanner(ctx)
-            if (!scanner.isUsageAccessGranted()) return null
+            if (!scanner.isUsageAccessGranted()) return emptyList()
             val db = ForensicsDatabase.getInstance(ctx)
             val repo = ForensicsRepository(db.forensicsDao(), scanner)
             val insights = repo.queryRealAppActivityInsights(scanner)
-            val top = insights.items.firstOrNull { it.impactLevel == "High"}
-?: insights.items.firstOrNull()
-?: return null
-            if (top.estimatedDrainPct > 0f) {
-                "${top.appName} background (~${top.estimatedDrainPct.roundToInt()}%)"
-} else {
-                "${top.appName} background"
-}
-} catch (_: Exception) {
-            null
-}
-}
+            insights.items
+                .sortedByDescending { it.estimatedDrainPct }
+                .take(3)
+                .map { top ->
+                    if (top.estimatedDrainPct > 0f) {
+                        "${top.appName} background (~${top.estimatedDrainPct.roundToInt()}%)"
+                    } else {
+                        "${top.appName} background"
+                    }
+                }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
-    private fun saveSummary(prefs: SharedPreferences, day: String, text: String) {
+    private fun saveSummary(prefs: SharedPreferences, day: String, text: String, top3: List<String> = emptyList()) {
         prefs.edit()
-.putString("morning_report_day", day)
-.putString("morning_report_text", text)
-.apply()
-}
+            .putString("morning_report_day", day)
+            .putString("morning_report_text", text)
+            .putString("morning_report_top3", top3.take(3).joinToString("|"))
+            .apply()
+    }
 
     private fun notificationsGranted(ctx: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
