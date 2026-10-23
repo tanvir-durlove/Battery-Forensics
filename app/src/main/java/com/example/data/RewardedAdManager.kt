@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.lang.ref.WeakReference
 
 enum class RewardedAdState(val label: String) {
     LOADING("Loading Ad..."),
@@ -135,6 +138,32 @@ class RewardedAdManager(context: Context) {
     private var rewardedInterstitialVideoAd: RewardedInterstitialAd? = null
     private var isLoadingAd: Boolean = false
 
+    // Load-reliability machinery: a failed full-screen load is retried with
+    // backoff instead of leaving the slot empty until the next manual attempt,
+    // and a rewarded show requested while no ad is ready waits briefly for the
+    // in-flight load instead of failing instantly.
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var rewardedLoadAttempts: Int = 0
+    private var interstitialLoadAttempts: Int = 0
+    private var rewardedInterstitialLoadAttempts: Int = 0
+
+    private class PendingRewardedShow(
+        val activityRef: WeakReference<Activity>,
+        val onRewardEarned: (amount: Int, type: String) -> Unit,
+        val onShowInteractiveTestAd: (() -> Unit)?,
+        val onAdLoadOrShowFailed: (() -> Unit)?
+    )
+
+    private var pendingRewardedShow: PendingRewardedShow? = null
+    private var pendingRewardedTimeout: Runnable? = null
+
+    private fun retryDelayMs(attempt: Int): Long = when (attempt) {
+        0 -> 5_000L
+        1 -> 15_000L
+        2 -> 30_000L
+        else -> 60_000L
+    }
+
     private val _adState = MutableStateFlow(RewardedAdState.READY)
     val adState: StateFlow<RewardedAdState> = _adState.asStateFlow()
 
@@ -150,6 +179,10 @@ class RewardedAdManager(context: Context) {
         const val GOOGLE_SAMPLE_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
         const val GOOGLE_SAMPLE_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
         const val GOOGLE_SAMPLE_REWARDED_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/5354046379"
+
+        // How long a rewarded show request waits for an in-flight load before
+        // surfacing the "Ad Unavailable" fallback.
+        const val REWARDED_SHOW_WAIT_MS = 10_000L
 
         // Set once from the host APK's debuggable flag in the init block below.
         // True for debug builds -> Google sample (test) ads; false for release
@@ -239,13 +272,17 @@ class RewardedAdManager(context: Context) {
                     override fun onAdLoaded(ad: RewardedAd) {
                         rewardedAd = ad
                         isLoadingAd = false
+                        rewardedLoadAttempts = 0
                         _adState.value = RewardedAdState.READY
+                        fulfillPendingRewardedShow()
                     }
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         rewardedAd = null
                         isLoadingAd = false
                         _adState.value = RewardedAdState.FALLBACK_TEST_READY
+                        scheduleRewardedLoadRetry()
+                        failPendingRewardedShow()
                     }
                 }
             )
@@ -267,10 +304,14 @@ class RewardedAdManager(context: Context) {
                 object : InterstitialAdLoadCallback() {
                     override fun onAdLoaded(ad: InterstitialAd) {
                         interstitialVideoAd = ad
+                        interstitialLoadAttempts = 0
                     }
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         interstitialVideoAd = null
+                        val delay = retryDelayMs(interstitialLoadAttempts)
+                        interstitialLoadAttempts++
+                        mainHandler.postDelayed({ loadInterstitialVideoAd() }, delay)
                     }
                 }
             )
@@ -290,10 +331,14 @@ class RewardedAdManager(context: Context) {
                 object : RewardedInterstitialAdLoadCallback() {
                     override fun onAdLoaded(ad: RewardedInterstitialAd) {
                         rewardedInterstitialVideoAd = ad
+                        rewardedInterstitialLoadAttempts = 0
                     }
 
                     override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                         rewardedInterstitialVideoAd = null
+                        val delay = retryDelayMs(rewardedInterstitialLoadAttempts)
+                        rewardedInterstitialLoadAttempts++
+                        mainHandler.postDelayed({ loadRewardedInterstitialVideoAd() }, delay)
                     }
                 }
             )
@@ -332,36 +377,128 @@ class RewardedAdManager(context: Context) {
         onShowInteractiveTestAd: (() -> Unit)? = null,
         onAdLoadOrShowFailed: (() -> Unit)? = null
     ) {
-        val currentAd = rewardedAd
-        val listener = createEarnedRewardListener(onRewardEarned)
-        if (!isVirtualOrEmulatorDevice() && currentAd != null && activity != null) {
-            currentAd.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    rewardedAd = null
-                    loadRewardedAd()
-                }
-
-                override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                    rewardedAd = null
-                    loadRewardedAd()
-                    if (onShowInteractiveTestAd != null) {
-                        onShowInteractiveTestAd()
-                    } else if (onAdLoadOrShowFailed != null) {
-                        onAdLoadOrShowFailed()
-                    }
-                }
-            }
-            rewardedAd = null
-            currentAd.show(activity, listener)
-        } else if (onShowInteractiveTestAd != null) {
+        if (isVirtualOrEmulatorDevice() || activity == null) {
+            // Same fallback semantics as before for emulator/test hosts and
+            // calls without a host activity.
             loadRewardedAd()
-            onShowInteractiveTestAd()
-        } else {
-            loadRewardedAd()
-            if (onAdLoadOrShowFailed != null) {
+            if (onShowInteractiveTestAd != null) {
+                onShowInteractiveTestAd()
+            } else if (onAdLoadOrShowFailed != null) {
                 onAdLoadOrShowFailed()
             }
+            return
         }
+        if (rewardedAd != null) {
+            presentRewardedAd(activity, onRewardEarned, onShowInteractiveTestAd, onAdLoadOrShowFailed)
+        } else {
+            // No ad ready yet: wait briefly for the in-flight (or a fresh) load
+            // instead of failing instantly — a rewarded video load normally
+            // takes a few seconds, so the old instant-fail made the
+            // "Ad Unavailable" dialog appear even on healthy connections.
+            queuePendingRewardedShow(activity, onRewardEarned, onShowInteractiveTestAd, onAdLoadOrShowFailed)
+            loadRewardedAd()
+        }
+    }
+
+    private fun presentRewardedAd(
+        activity: Activity,
+        onRewardEarned: (amount: Int, type: String) -> Unit,
+        onShowInteractiveTestAd: (() -> Unit)?,
+        onAdLoadOrShowFailed: (() -> Unit)?
+    ) {
+        val currentAd = rewardedAd
+        if (currentAd == null) {
+            queuePendingRewardedShow(activity, onRewardEarned, onShowInteractiveTestAd, onAdLoadOrShowFailed)
+            loadRewardedAd()
+            return
+        }
+        val listener = createEarnedRewardListener(onRewardEarned)
+        currentAd.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                rewardedAd = null
+                loadRewardedAd()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                rewardedAd = null
+                loadRewardedAd()
+                if (onShowInteractiveTestAd != null) {
+                    onShowInteractiveTestAd()
+                } else if (onAdLoadOrShowFailed != null) {
+                    onAdLoadOrShowFailed()
+                }
+            }
+        }
+        rewardedAd = null
+        currentAd.show(activity, listener)
+    }
+
+    private fun queuePendingRewardedShow(
+        activity: Activity,
+        onRewardEarned: (amount: Int, type: String) -> Unit,
+        onShowInteractiveTestAd: (() -> Unit)?,
+        onAdLoadOrShowFailed: (() -> Unit)?
+    ) {
+        clearPendingRewardedShow()
+        pendingRewardedShow = PendingRewardedShow(
+            WeakReference(activity),
+            onRewardEarned,
+            onShowInteractiveTestAd,
+            onAdLoadOrShowFailed
+        )
+        val timeout = Runnable {
+            val pending = pendingRewardedShow
+            pendingRewardedShow = null
+            pendingRewardedTimeout = null
+            if (pending != null) {
+                if (pending.onShowInteractiveTestAd != null) {
+                    pending.onShowInteractiveTestAd.invoke()
+                } else if (pending.onAdLoadOrShowFailed != null) {
+                    pending.onAdLoadOrShowFailed.invoke()
+                }
+            }
+        }
+        pendingRewardedTimeout = timeout
+        mainHandler.postDelayed(timeout, REWARDED_SHOW_WAIT_MS)
+    }
+
+    private fun fulfillPendingRewardedShow() {
+        val pending = pendingRewardedShow ?: return
+        val activity = pending.activityRef.get()
+        clearPendingRewardedShow()
+        if (activity != null) {
+            presentRewardedAd(
+                activity,
+                pending.onRewardEarned,
+                pending.onShowInteractiveTestAd,
+                pending.onAdLoadOrShowFailed
+            )
+        }
+    }
+
+    private fun failPendingRewardedShow() {
+        val pending = pendingRewardedShow ?: return
+        clearPendingRewardedShow()
+        if (pending.onShowInteractiveTestAd != null) {
+            pending.onShowInteractiveTestAd.invoke()
+        } else if (pending.onAdLoadOrShowFailed != null) {
+            pending.onAdLoadOrShowFailed.invoke()
+        }
+    }
+
+    private fun clearPendingRewardedShow() {
+        pendingRewardedShow = null
+        val timeout = pendingRewardedTimeout
+        if (timeout != null) {
+            mainHandler.removeCallbacks(timeout)
+        }
+        pendingRewardedTimeout = null
+    }
+
+    private fun scheduleRewardedLoadRetry() {
+        val delay = retryDelayMs(rewardedLoadAttempts)
+        rewardedLoadAttempts++
+        mainHandler.postDelayed({ loadRewardedAd() }, delay)
     }
 
     /**
