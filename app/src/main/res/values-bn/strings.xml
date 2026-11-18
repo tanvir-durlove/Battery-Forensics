@@ -1,0 +1,35 @@
+<resources>
+    <!-- 1.0.2: Bengali translations for the user-facing strings moved out of Kotlin literals -->
+    <string name="benchmark_deep_benchmark">ডিপ বেঞ্চমার্ক</string>
+    <string name="benchmark_unlocked">আনলকড</string>
+    <string name="benchmark_locked_for_session">এই সেশনের জন্য লকড</string>
+    <string name="benchmark_active">সক্রিয়</string>
+    <string name="benchmark_stress_title">চার্জিং স্ট্রেস ও তাপ পরীক্ষা</string>
+    <string name="benchmark_locked_description">এই সেশনের লাইভ চার্জিং স্পিড স্ট্রেস, ভোল্টেজ স্থিতি ও নিরাপদ তাপমাত্রার মার্জিন আনলক করুন।</string>
+    <string name="benchmark_watch_ad">অ্যাড দেখে আনলক করুন</string>
+    <string name="benchmark_watch_ad_subtext">ফ্রি — একটি ছোট ভিডিও অ্যাড</string>
+    <string name="demo_badge">ডেমো</string>
+    <string name="adb_deep_drain_title">ডিপ ড্রেন ও ওয়েকলক পরীক্ষা</string>
+    <string name="adb_advanced_optional">অ্যাডভান্সড (ঐচ্ছিক)</string>
+    <string name="adb_needs_computer">কম্পিউটার লাগবে — বিশেষজ্ঞদের জন্য</string>
+    <string name="diagnose_standard_mode_title">স্ট্যান্ডার্ড মোডের সীমাবদ্ধতা</string>
+    <string name="diagnose_advanced_pc">অ্যাডভান্সড: পিসিতে সংযোগ করুন (ঐচ্ছিক)</string>
+    <string name="diagnose_advanced_pc_explainer">সেটআপ করতে কম্পিউটার লাগবে — ঐচ্ছিক, শুধু অ্যাডভান্সড ব্যবহারকারীদের জন্য।</string>
+    <string name="dashboard_live_monitoring">অ্যান্ড্রয়েড %1$s · লাইভ মনিটরিং সক্রিয়</string>
+    <string name="dashboard_live_phone_status">লাইভ ফোন স্ট্যাটাস</string>
+    <string name="tile_screen">স্ক্রিন</string>
+    <string name="tile_sleep_mode">স্লিপ মোড</string>
+    <string name="tile_wifi">ওয়াই-ফাই</string>
+    <string name="tile_mobile">মোবাইল</string>
+    <string name="tile_bluetooth">ব্লুটুথ</string>
+    <string name="tile_location">লোকেশন</string>
+    <string name="metric_power_flow">পাওয়ার ফ্লো</string>
+    <string name="metric_power_flow_live">লাইভ</string>
+    <string name="metric_power_flow_idle">আইডল</string>
+    <string name="metric_health_score">হেলথ স্কোর</string>
+    <string name="metric_health_ready">প্রস্তুত</string>
+    <string name="metric_health_learning">শিখছে</string>
+    <string name="health_calibration_progress">%2$dটির মধ্যে %1$dটি চার্জ সম্পন্ন</string>
+    <string name="health_calibration_based_on">%1$dটি চার্জের ভিত্তিতে</string>
+    <string name="dashboard_based_on_screen_time">স্ক্রিন টাইম ও ব্যাকগ্রাউন্ড অ্যাপ চেকের ভিত্তিতে</string>
+</resources>
