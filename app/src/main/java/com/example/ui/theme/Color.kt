@@ -197,7 +197,7 @@ internal object ForensicsDarkColors : ForensicsColors {
 
 object ForensicsPalette {
     // Backed by snapshot state: plain reads everywhere, recomposition on change.
-    var colors: ForensicsColors by mutableStateOf(ForensicsLightColors)
+    internal var colors: ForensicsColors by mutableStateOf(ForensicsLightColors)
 
     fun setDark(dark: Boolean) {
         colors = if (dark) ForensicsDarkColors else ForensicsLightColors
