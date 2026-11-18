@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 
 private val ForensicsLightColorScheme = lightColorScheme(
@@ -63,9 +64,13 @@ fun MyApplicationTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) ForensicsDarkColorScheme else ForensicsLightColorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalForensicsPalette provides if (darkTheme) ForensicsDarkColors else ForensicsLightColors
+    ) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) ForensicsDarkColorScheme else ForensicsLightColorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
