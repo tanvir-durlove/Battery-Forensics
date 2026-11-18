@@ -1,6 +1,8 @@
 package com.example.ui.theme
 
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 // 1.0.2: the palette resolves against the system theme, so the app follows
@@ -10,17 +12,14 @@ import androidx.compose.ui.graphics.Color
 // enough for the few places an accent is used as a background (e.g. the
 // green status banner in MainActivity, which keeps hardcoded white text).
 //
-// The palette is a CompositionLocal, NOT composable getters: a
-// composable getter on every color made every palette read a composable
-// invocation, which broke compilation in the top-level Material3 schemes
-// (Theme.kt) and inside every Canvas onDraw lambda. CompositionLocal.current
-// is a plain property access, so reads compile anywhere; during composition
-// it returns the provided (light/dark) set, outside composition it returns
-// the light default. One exception: a read INSIDE a Canvas onDraw lambda
-// runs in the draw phase and would silently get the LIGHT set in dark mode,
-// so draw code must hoist the color into a local val in the enclosing
-// composable body first (see MiniBatteryIndicator, ChargingCurveChart,
-// BatteryCircularGauge, DrainTrendLineChart).
+// The palette is plain state, NOT a CompositionLocal: CompositionLocal.current
+// is a composable getter, so palette reads through it were composable
+// invocations that broke compilation in the top-level Material3 schemes
+// (Theme.kt) and inside every Canvas onDraw lambda. A `var colors` backed by
+// mutableStateOf is plain: reads compile anywhere (composable bodies, Canvas
+// lambdas, top-level vals), and reads inside composable bodies track the
+// state, so a runtime theme change recomposes. MyApplicationTheme syncs the
+// palette with `remember(darkTheme) { ForensicsPalette.setDark(darkTheme) }`.
 
 internal interface ForensicsColors {
     val ScreenBackground: Color
@@ -196,55 +195,58 @@ internal object ForensicsDarkColors : ForensicsColors {
     override val GraySoftTile = Color(0xFF20252D)
 }
 
-// Default is the light set; MyApplicationTheme provides the dark set
-// when the system is in dark mode.
-internal val LocalForensicsPalette = staticCompositionLocalOf<ForensicsColors> { ForensicsLightColors }
-
 object ForensicsPalette {
-    val ScreenBackground: Color get() = LocalForensicsPalette.current.ScreenBackground
-    val CardSurface: Color get() = LocalForensicsPalette.current.CardSurface
-    val SubtleSurface: Color get() = LocalForensicsPalette.current.SubtleSurface
-    val SubtleSurfaceAlt: Color get() = LocalForensicsPalette.current.SubtleSurfaceAlt
-    val BorderSubtle: Color get() = LocalForensicsPalette.current.BorderSubtle
-    val BorderStrong: Color get() = LocalForensicsPalette.current.BorderStrong
-    val DividerColor: Color get() = LocalForensicsPalette.current.DividerColor
-    val TextPrimary: Color get() = LocalForensicsPalette.current.TextPrimary
-    val TextSecondary: Color get() = LocalForensicsPalette.current.TextSecondary
-    val TextMuted: Color get() = LocalForensicsPalette.current.TextMuted
-    val GreenPrimary: Color get() = LocalForensicsPalette.current.GreenPrimary
-    val GreenGauge: Color get() = LocalForensicsPalette.current.GreenGauge
-    val GreenContainer: Color get() = LocalForensicsPalette.current.GreenContainer
-    val GreenBorder: Color get() = LocalForensicsPalette.current.GreenBorder
-    val GreenTrack: Color get() = LocalForensicsPalette.current.GreenTrack
-    val GreenSoftTile: Color get() = LocalForensicsPalette.current.GreenSoftTile
-    val BluePrimary: Color get() = LocalForensicsPalette.current.BluePrimary
-    val BlueBright: Color get() = LocalForensicsPalette.current.BlueBright
-    val BlueContainer: Color get() = LocalForensicsPalette.current.BlueContainer
-    val BlueBorder: Color get() = LocalForensicsPalette.current.BlueBorder
-    val BlueSoftTile: Color get() = LocalForensicsPalette.current.BlueSoftTile
-    val BlueChartLine: Color get() = LocalForensicsPalette.current.BlueChartLine
-    val BlueBarLight: Color get() = LocalForensicsPalette.current.BlueBarLight
-    val PurplePrimary: Color get() = LocalForensicsPalette.current.PurplePrimary
-    val PurpleBright: Color get() = LocalForensicsPalette.current.PurpleBright
-    val PurpleContainer: Color get() = LocalForensicsPalette.current.PurpleContainer
-    val PurpleBorder: Color get() = LocalForensicsPalette.current.PurpleBorder
-    val PurpleSoftTile: Color get() = LocalForensicsPalette.current.PurpleSoftTile
-    val PurpleDeepButton: Color get() = LocalForensicsPalette.current.PurpleDeepButton
-    val AmberPrimary: Color get() = LocalForensicsPalette.current.AmberPrimary
-    val AmberDarkText: Color get() = LocalForensicsPalette.current.AmberDarkText
-    val TemperatureOrange: Color get() = LocalForensicsPalette.current.TemperatureOrange
-    val AmberContainer: Color get() = LocalForensicsPalette.current.AmberContainer
-    val AmberBorder: Color get() = LocalForensicsPalette.current.AmberBorder
-    val AmberInnerCard: Color get() = LocalForensicsPalette.current.AmberInnerCard
-    val AmberPill: Color get() = LocalForensicsPalette.current.AmberPill
-    val AmberSoftTile: Color get() = LocalForensicsPalette.current.AmberSoftTile
-    val AmberIconBox: Color get() = LocalForensicsPalette.current.AmberIconBox
-    val RedPrimary: Color get() = LocalForensicsPalette.current.RedPrimary
-    val RedBar: Color get() = LocalForensicsPalette.current.RedBar
-    val RedContainer: Color get() = LocalForensicsPalette.current.RedContainer
-    val RedBorder: Color get() = LocalForensicsPalette.current.RedBorder
-    val GrayPrimary: Color get() = LocalForensicsPalette.current.GrayPrimary
-    val GrayContainer: Color get() = LocalForensicsPalette.current.GrayContainer
-    val GrayBorder: Color get() = LocalForensicsPalette.current.GrayBorder
-    val GraySoftTile: Color get() = LocalForensicsPalette.current.GraySoftTile
+    // Backed by snapshot state: plain reads everywhere, recomposition on change.
+    var colors: ForensicsColors by mutableStateOf(ForensicsLightColors)
+
+    fun setDark(dark: Boolean) {
+        colors = if (dark) ForensicsDarkColors else ForensicsLightColors
+    }
+
+    val ScreenBackground: Color get() = colors.ScreenBackground
+    val CardSurface: Color get() = colors.CardSurface
+    val SubtleSurface: Color get() = colors.SubtleSurface
+    val SubtleSurfaceAlt: Color get() = colors.SubtleSurfaceAlt
+    val BorderSubtle: Color get() = colors.BorderSubtle
+    val BorderStrong: Color get() = colors.BorderStrong
+    val DividerColor: Color get() = colors.DividerColor
+    val TextPrimary: Color get() = colors.TextPrimary
+    val TextSecondary: Color get() = colors.TextSecondary
+    val TextMuted: Color get() = colors.TextMuted
+    val GreenPrimary: Color get() = colors.GreenPrimary
+    val GreenGauge: Color get() = colors.GreenGauge
+    val GreenContainer: Color get() = colors.GreenContainer
+    val GreenBorder: Color get() = colors.GreenBorder
+    val GreenTrack: Color get() = colors.GreenTrack
+    val GreenSoftTile: Color get() = colors.GreenSoftTile
+    val BluePrimary: Color get() = colors.BluePrimary
+    val BlueBright: Color get() = colors.BlueBright
+    val BlueContainer: Color get() = colors.BlueContainer
+    val BlueBorder: Color get() = colors.BlueBorder
+    val BlueSoftTile: Color get() = colors.BlueSoftTile
+    val BlueChartLine: Color get() = colors.BlueChartLine
+    val BlueBarLight: Color get() = colors.BlueBarLight
+    val PurplePrimary: Color get() = colors.PurplePrimary
+    val PurpleBright: Color get() = colors.PurpleBright
+    val PurpleContainer: Color get() = colors.PurpleContainer
+    val PurpleBorder: Color get() = colors.PurpleBorder
+    val PurpleSoftTile: Color get() = colors.PurpleSoftTile
+    val PurpleDeepButton: Color get() = colors.PurpleDeepButton
+    val AmberPrimary: Color get() = colors.AmberPrimary
+    val AmberDarkText: Color get() = colors.AmberDarkText
+    val TemperatureOrange: Color get() = colors.TemperatureOrange
+    val AmberContainer: Color get() = colors.AmberContainer
+    val AmberBorder: Color get() = colors.AmberBorder
+    val AmberInnerCard: Color get() = colors.AmberInnerCard
+    val AmberPill: Color get() = colors.AmberPill
+    val AmberSoftTile: Color get() = colors.AmberSoftTile
+    val AmberIconBox: Color get() = colors.AmberIconBox
+    val RedPrimary: Color get() = colors.RedPrimary
+    val RedBar: Color get() = colors.RedBar
+    val RedContainer: Color get() = colors.RedContainer
+    val RedBorder: Color get() = colors.RedBorder
+    val GrayPrimary: Color get() = colors.GrayPrimary
+    val GrayContainer: Color get() = colors.GrayContainer
+    val GrayBorder: Color get() = colors.GrayBorder
+    val GraySoftTile: Color get() = colors.GraySoftTile
 }
