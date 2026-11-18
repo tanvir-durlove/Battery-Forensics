@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -262,7 +263,7 @@ fun DiagnoseScreen(
                         ) {
                             if (!adbModeEnabled) {
                                 Text(
-                                    text = "Standard Mode Limitations",
+                                    text = stringResource(R.string.diagnose_standard_mode_title),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ForensicsPalette.TextPrimary
@@ -275,7 +276,7 @@ fun DiagnoseScreen(
                                 LimitationBullet("Deep sleep time — hidden by phone brand")
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Enable ADB Mode →",
+                                    text = stringResource(R.string.diagnose_advanced_pc),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ForensicsPalette.BluePrimary,
@@ -284,6 +285,12 @@ fun DiagnoseScreen(
                                         .clickable { onNavigateToAdbSettings() }
                                         .padding(vertical = 2.dp)
                                         .testTag("enable_adb_mode_link")
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = stringResource(R.string.diagnose_advanced_pc_explainer),
+                                    fontSize = 12.sp,
+                                    color = ForensicsPalette.TextSecondary
                                 )
                             } else {
                                 Row(
@@ -1085,7 +1092,7 @@ fun DiagnoseScreen(
                     ) {
                         if (!adbModeEnabled) {
                             Text(
-                                text = "Standard Mode Limitations",
+                                text = stringResource(R.string.diagnose_standard_mode_title),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ForensicsPalette.TextPrimary
@@ -1098,7 +1105,7 @@ fun DiagnoseScreen(
                             LimitationBullet("Deep sleep time — hidden by phone brand")
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "Enable ADB Mode →",
+                                text = stringResource(R.string.diagnose_advanced_pc),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ForensicsPalette.BluePrimary,
@@ -1107,6 +1114,12 @@ fun DiagnoseScreen(
                                     .clickable { onNavigateToAdbSettings() }
                                     .padding(vertical = 2.dp)
                                     .testTag("enable_adb_mode_link")
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.diagnose_advanced_pc_explainer),
+                                fontSize = 12.sp,
+                                color = ForensicsPalette.TextSecondary
                             )
                         } else {
                             Row(
