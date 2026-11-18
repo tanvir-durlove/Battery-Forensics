@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
 private val ForensicsLightColorScheme = lightColorScheme(
@@ -64,13 +64,14 @@ fun MyApplicationTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    CompositionLocalProvider(
-        LocalForensicsPalette provides if (darkTheme) ForensicsDarkColors else ForensicsLightColors
-    ) {
-        MaterialTheme(
-            colorScheme = if (darkTheme) ForensicsDarkColorScheme else ForensicsLightColorScheme,
-            typography = Typography,
-            content = content
-        )
-    }
+    // Sync the plain state-backed palette before children compose, so the
+    // first frame already uses the right set. remember() re-runs only when
+    // darkTheme changes; the write is idempotent (same instance), so it
+    // cannot loop.
+    remember(darkTheme) { ForensicsPalette.setDark(darkTheme) }
+    MaterialTheme(
+        colorScheme = if (darkTheme) ForensicsDarkColorScheme else ForensicsLightColorScheme,
+        typography = Typography,
+        content = content
+    )
 }
