@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -109,7 +110,7 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Android ${snapshot.androidVersion} · Live monitoring active",
+                        text = stringResource(R.string.dashboard_live_monitoring, snapshot.androidVersion),
                         fontSize = 13.sp,
                         color = ForensicsPalette.TextSecondary,
                         maxLines = 1,
@@ -256,7 +257,7 @@ fun DashboardScreen(
                         Text(
                             text = "Screen ${snapshot.screenState} · tap for full analysis",
                             fontSize = 12.sp,
-                            color = ForensicsPalette.TextMuted
+                            color = ForensicsPalette.TextSecondary
                         )
                     }
                 }
@@ -396,7 +397,7 @@ fun DashboardScreen(
                         Text(
                             text = "Tap for full analysis",
                             fontSize = 12.sp,
-                            color = ForensicsPalette.TextMuted
+                            color = ForensicsPalette.TextSecondary
                         )
                     }
                 }
@@ -542,11 +543,11 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     MetricQuadCard(
-                        title = "Power Flow",
-                        badgeText = if (snapshot.currentMilliAmps != 0) "Live" else "Auto",
+                        title = stringResource(R.string.metric_power_flow),
+                        badgeText = if (snapshot.currentMilliAmps != 0) stringResource(R.string.metric_power_flow_live) else stringResource(R.string.metric_power_flow_idle),
                         badgeBg = ForensicsPalette.PurpleContainer,
                         badgeTextColor = ForensicsPalette.PurplePrimary,
-                        mainValue = if (snapshot.currentMilliAmps != 0) "${snapshot.currentMilliAmps}" else "—",
+                        mainValue = if (snapshot.currentMilliAmps != 0) "${snapshot.currentMilliAmps}" else "0",
                         unit = " mA",
                         valueColor = ForensicsPalette.PurpleBright,
                         subtitle = snapshot.currentStatus,
@@ -556,19 +557,24 @@ fun DashboardScreen(
                     )
                     val showCalibratedScore = !snapshot.isHealthScoreCalibrating && snapshot.healthScore > 0
                     MetricQuadCard(
-                        title = "Health Score",
-                        badgeText = if (showCalibratedScore) "Ready" else "Learning",
+                        title = stringResource(R.string.metric_health_score),
+                        badgeText = if (showCalibratedScore) stringResource(R.string.metric_health_ready) else stringResource(R.string.metric_health_learning),
                         badgeBg = ForensicsPalette.GreenContainer,
                         badgeTextColor = ForensicsPalette.GreenPrimary,
-                        mainValue = if (showCalibratedScore) "${snapshot.healthScore.coerceAtMost(100)}" else "Calibrating...",
-                        unit = if (showCalibratedScore) " /100" else "",
-                        valueFontSize = if (showCalibratedScore) 26 else 18,
+                        mainValue = if (showCalibratedScore) "${snapshot.healthScore.coerceAtMost(100)}" else "—",
+                        unit = " /100",
+                        valueFontSize = 26,
                         valueColor = ForensicsPalette.GreenPrimary,
                         subtitle = if (showCalibratedScore) {
-                            "Based on ${snapshot.smoothedCapacitySampleCount} charges"
+                            stringResource(R.string.health_calibration_based_on, snapshot.smoothedCapacitySampleCount)
                         } else {
-                            snapshot.healthCalibrationStatusText
+                            stringResource(
+                                R.string.health_calibration_progress,
+                                snapshot.calibrationSessionsCompleted.coerceIn(0, snapshot.calibrationTargetSessions),
+                                snapshot.calibrationTargetSessions
+                            )
                         },
+                        calibrationDots = if (showCalibratedScore) null else snapshot.calibrationSessionsCompleted,
                         onClick = { showHealthModal = true },
                         modifier = Modifier
                             .weight(1f)
@@ -637,7 +643,7 @@ fun DashboardScreen(
                             Text(
                                 text = snapshot.drainMonitorStatusText,
                                 fontSize = 12.sp,
-                                color = ForensicsPalette.TextMuted,
+                                color = ForensicsPalette.TextSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -780,7 +786,7 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "LIVE PHONE STATUS",
+                            text = stringResource(R.string.dashboard_live_phone_status),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
@@ -802,7 +808,7 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         SystemStateTile(
-                            label = "SCREEN",
+                            label = stringResource(R.string.tile_screen),
                             value = snapshot.screenState,
                             bgColor = ForensicsPalette.BlueSoftTile,
                             borderColor = ForensicsPalette.BlueBorder,
@@ -812,7 +818,7 @@ fun DashboardScreen(
                                 .fillMaxHeight()
                         )
                         SystemStateTile(
-                            label = "SLEEP MODE",
+                            label = stringResource(R.string.tile_sleep_mode),
                             value = snapshot.dozeState,
                             bgColor = ForensicsPalette.GraySoftTile,
                             borderColor = ForensicsPalette.GrayBorder,
@@ -822,7 +828,7 @@ fun DashboardScreen(
                                 .fillMaxHeight()
                         )
                         SystemStateTile(
-                            label = "WI-FI",
+                            label = stringResource(R.string.tile_wifi),
                             value = snapshot.wifiState,
                             bgColor = ForensicsPalette.GreenSoftTile,
                             borderColor = ForensicsPalette.GreenBorder,
@@ -840,7 +846,7 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         SystemStateTile(
-                            label = "MOBILE",
+                            label = stringResource(R.string.tile_mobile),
                             value = snapshot.mobileState,
                             bgColor = ForensicsPalette.PurpleSoftTile,
                             borderColor = ForensicsPalette.PurpleBorder,
@@ -850,7 +856,7 @@ fun DashboardScreen(
                                 .fillMaxHeight()
                         )
                         SystemStateTile(
-                            label = "BLUETOOTH",
+                            label = stringResource(R.string.tile_bluetooth),
                             value = snapshot.bluetoothState,
                             bgColor = ForensicsPalette.BlueSoftTile,
                             borderColor = ForensicsPalette.BlueBorder,
@@ -860,7 +866,7 @@ fun DashboardScreen(
                                 .fillMaxHeight()
                         )
                         SystemStateTile(
-                            label = "LOCATION",
+                            label = stringResource(R.string.tile_location),
                             value = snapshot.locationState,
                             bgColor = ForensicsPalette.AmberSoftTile,
                             borderColor = ForensicsPalette.AmberBorder,
@@ -984,9 +990,9 @@ fun DashboardScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Based on screen time and background app checks",
-                        fontSize = 11.sp,
-                        color = ForensicsPalette.TextMuted
+                        text = stringResource(R.string.dashboard_based_on_screen_time),
+                        fontSize = 12.sp,
+                        color = ForensicsPalette.TextSecondary
                     )
                 }
             }
@@ -1138,7 +1144,7 @@ fun DashboardScreen(
                     Text(
                         text = "How this works: Your score compares your battery's usable capacity against its original factory capacity across your last 5–10 charges (capped at 100%). Needs 3 full charges to finish learning.",
                         fontSize = 12.sp,
-                        color = ForensicsPalette.TextMuted
+                        color = ForensicsPalette.TextSecondary
                     )
                 }
             },
@@ -1316,6 +1322,7 @@ private fun MetricQuadCard(
     valueColor: Color,
     subtitle: String,
     valueFontSize: Int = 26,
+    calibrationDots: Int? = null,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -1376,11 +1383,27 @@ private fun MetricQuadCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (calibrationDots != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(3) { index ->
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (index < calibrationDots.coerceIn(0, 3)) ForensicsPalette.GreenPrimary
+                                    else ForensicsPalette.BorderSubtle
+                                )
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = subtitle,
-                fontSize = 11.sp,
-                color = ForensicsPalette.TextMuted,
+                fontSize = 12.sp,
+                color = ForensicsPalette.TextSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1409,7 +1432,7 @@ private fun SystemStateTile(
     ) {
         Text(
             text = label,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.4.sp,
             color = textColor.copy(alpha = 0.85f),
@@ -1420,7 +1443,7 @@ private fun SystemStateTile(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = textColor,
             maxLines = 1,
