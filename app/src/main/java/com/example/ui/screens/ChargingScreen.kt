@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -443,12 +444,12 @@ fun ChargingScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 ClassificationBadge(
-                                    text = if (isDeepBenchmarkUnlocked) "UNLOCKED" else "DEEP BENCHMARK",
+                                    text = if (isDeepBenchmarkUnlocked) stringResource(R.string.benchmark_unlocked) else stringResource(R.string.benchmark_deep_benchmark),
                                     containerColor = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenContainer else ForensicsPalette.PurpleSoftTile,
                                     contentColor = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenPrimary else ForensicsPalette.PurplePrimary
                                 )
                                 Text(
-                                    text = if (isDeepBenchmarkUnlocked) "Active" else "Session Locked",
+                                    text = if (isDeepBenchmarkUnlocked) stringResource(R.string.benchmark_active) else stringResource(R.string.benchmark_locked_for_session),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isDeepBenchmarkUnlocked) ForensicsPalette.GreenPrimary else ForensicsPalette.PurplePrimary
@@ -461,7 +462,7 @@ fun ChargingScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Charging Stress & Heat Check",
+                                    text = stringResource(R.string.benchmark_stress_title),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ForensicsPalette.TextPrimary,
@@ -477,7 +478,7 @@ fun ChargingScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             if (!isDeepBenchmarkUnlocked) {
                                 Text(
-                                    text = "Unlock live charging speed stress, voltage stability, and safe temperature margin for this session.",
+                                    text = stringResource(R.string.benchmark_locked_description),
                                     fontSize = 12.sp,
                                     color = ForensicsPalette.TextSecondary
                                 )
@@ -489,10 +490,18 @@ fun ChargingScreen(
                                         .testTag("video_ad_2_charging_button")
                                 ) {
                                     Text(
-                                        text = "Unlock Benchmark",
+                                        text = stringResource(R.string.benchmark_watch_ad),
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.benchmark_watch_ad_subtext),
+                                    fontSize = 12.sp,
+                                    color = ForensicsPalette.TextSecondary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             } else {
                                 val cRate = if (snapshot.designCapacityMah > 0) {
                                     kotlin.math.abs(snapshot.currentMilliAmps).toFloat() / snapshot.designCapacityMah.toFloat()
@@ -886,7 +895,7 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
 private fun ChargingSessionCard(session: ChargingSessionEntity, isDemoData: Boolean = false) {
     val cardBg = if (session.isSlowBadge) ForensicsPalette.AmberInnerCard else ForensicsPalette.CardSurface
     val tempColor = if (session.isElevatedTemp) ForensicsPalette.RedPrimary else ForensicsPalette.TextPrimary
-    val isDemoSession = isDemoData || ForensicsRepository.isDemoSession(session.id.toString()) || session.chargerName.equals("Unknown charger", ignoreCase = true)
+    val isDemoSession = isDemoData || ForensicsRepository.isDemoSession(session.id.toString())
 
     ForensicsCard(containerColor = cardBg) {
         Column(
@@ -909,7 +918,7 @@ private fun ChargingSessionCard(session: ChargingSessionEntity, isDemoData: Bool
                     if (isDemoSession) {
                         Spacer(modifier = Modifier.width(8.dp))
                         ClassificationBadge(
-                            text = "Demo",
+                            text = stringResource(R.string.demo_badge),
                             containerColor = ForensicsPalette.AmberPill,
                             contentColor = ForensicsPalette.AmberPrimary
                         )
