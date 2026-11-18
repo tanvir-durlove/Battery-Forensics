@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -537,6 +538,7 @@ fun InsightsScreen(
         // 1. ADB High-Precision BATTERY_STATS Reminder Card
         item {
             val adbCmd = "adb shell pm grant com.nextgen.batteryforensics android.permission.BATTERY_STATS"
+            var adbDetailsExpanded by rememberSaveable { mutableStateOf(false) }
             ForensicsCard(
                 containerColor = ForensicsPalette.CardSurface,
                 modifier = Modifier.testTag("insights_adb_reminder_card")
@@ -547,7 +549,10 @@ fun InsightsScreen(
                         .padding(18.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { adbDetailsExpanded = !adbDetailsExpanded }
+                            .testTag("insights_adb_expand_toggle"),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -555,89 +560,112 @@ fun InsightsScreen(
                             Text(text = "⚡", fontSize = 16.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "DEEP DRAIN & WAKELOCK INSPECTION",
+                                text = stringResource(R.string.adb_deep_drain_title),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.8.sp,
                                 color = ForensicsPalette.TextSecondary
                             )
                         }
-                        ClassificationBadge(
-                            text = if (isAdbBatteryStatsGranted) "ADB Active" else "Standard Mode",
-                            containerColor = if (isAdbBatteryStatsGranted) ForensicsPalette.GreenContainer else ForensicsPalette.AmberContainer,
-                            contentColor = if (isAdbBatteryStatsGranted) ForensicsPalette.GreenPrimary else ForensicsPalette.AmberPrimary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ClassificationBadge(
+                                text = if (isAdbBatteryStatsGranted) "ADB Active" else "Standard Mode",
+                                containerColor = if (isAdbBatteryStatsGranted) ForensicsPalette.GreenContainer else ForensicsPalette.AmberContainer,
+                                contentColor = if (isAdbBatteryStatsGranted) ForensicsPalette.GreenPrimary else ForensicsPalette.AmberPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (adbDetailsExpanded) "▾" else "▸",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ForensicsPalette.TextSecondary
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (isAdbBatteryStatsGranted) {
-                            "BATTERY_STATS permission is active! Deep hardware dumpsys batterystats is unlocked for microscopic per-app hardware drain, kernel wakelocks, and antenna hold times."
-                        } else {
-                            "Want exact per-app mAh drain & kernel wakelocks? Android restricts third-party apps by default. Run this one-time command via PC or Wireless Debugging / Shizuku to unlock full system batterystats:"
-                        },
+                        text = stringResource(R.string.adb_advanced_optional),
                         fontSize = 12.sp,
-                        color = ForensicsPalette.TextPrimary,
-                        lineHeight = 17.sp
+                        fontWeight = FontWeight.Bold,
+                        color = ForensicsPalette.TextSecondary
                     )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(ForensicsPalette.SubtleSurface)
-                            .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.adb_needs_computer),
+                        fontSize = 12.sp,
+                        color = ForensicsPalette.TextSecondary
+                    )
+                    if (adbDetailsExpanded) {
                         Text(
-                            text = adbCmd,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = ForensicsPalette.BluePrimary,
-                            lineHeight = 16.sp
+                            text = if (isAdbBatteryStatsGranted) {
+                                "BATTERY_STATS permission is active! Deep hardware dumpsys batterystats is unlocked for microscopic per-app hardware drain, kernel wakelocks, and antenna hold times."
+                            } else {
+                                "Want exact per-app mAh drain & kernel wakelocks? Android restricts third-party apps by default. Run this one-time command via PC or Wireless Debugging / Shizuku to unlock full system batterystats:"
+                            },
+                            fontSize = 12.sp,
+                            color = ForensicsPalette.TextPrimary,
+                            lineHeight = 17.sp
                         )
-                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                val clip = ClipData.newPlainText("ADB Command", adbCmd)
-                                clipboard?.setPrimaryClip(clip)
-                                Toast.makeText(context, "ADB command copied! Run on PC or via Wireless Debugging / Shizuku", Toast.LENGTH_SHORT).show()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary),
-                            shape = RoundedCornerShape(10.dp),
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
                             modifier = Modifier
-                                .weight(1.3f)
-                                .testTag("insights_copy_adb_cmd_button")
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(ForensicsPalette.SubtleSurface)
+                                .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(10.dp))
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {
-                            Text("Copy ADB Command", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = adbCmd,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = ForensicsPalette.BluePrimary,
+                                lineHeight = 16.sp
+                            )
                         }
 
-                        OutlinedButton(
-                            onClick = { showAdbGuideModal = true },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("insights_adb_guide_button")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("1-Min Guide", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
+                            Button(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    val clip = ClipData.newPlainText("ADB Command", adbCmd)
+                                    clipboard?.setPrimaryClip(clip)
+                                    Toast.makeText(context, "ADB command copied! Run on PC or via Wireless Debugging / Shizuku", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ForensicsPalette.BluePrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .testTag("insights_copy_adb_cmd_button")
+                            ) {
+                                Text("Copy ADB Command", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
 
-                        OutlinedButton(
-                            onClick = {
-                                onRefreshAdbState()
-                                Toast.makeText(context, if (isAdbBatteryStatsGranted) "ADB Permission active!" else "Status refreshed", Toast.LENGTH_SHORT).show()
-                            },
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("↻", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            OutlinedButton(
+                                onClick = { showAdbGuideModal = true },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("insights_adb_guide_button")
+                            ) {
+                                Text("1-Min Guide", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    onRefreshAdbState()
+                                    Toast.makeText(context, if (isAdbBatteryStatsGranted) "ADB Permission active!" else "Status refreshed", Toast.LENGTH_SHORT).show()
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("↻", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -1535,7 +1563,7 @@ private fun TemperatureBarChart(points: List<DayDrainPoint>) {
             ) {
                 Text(
                     text = "${pt.peakTempCelsius}°",
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = if (isPeak) FontWeight.Bold else FontWeight.Medium,
                     color = if (isPeak) ForensicsPalette.RedPrimary else ForensicsPalette.TextSecondary
@@ -1565,7 +1593,7 @@ private fun TemperatureBarChart(points: List<DayDrainPoint>) {
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = pt.dayShort.first().toString(),
+                    text = pt.dayShort,
                     fontSize = 11.sp,
                     fontWeight = if (isPeak) FontWeight.Bold else FontWeight.SemiBold,
                     color = if (isPeak) ForensicsPalette.RedPrimary else ForensicsPalette.TextSecondary,
