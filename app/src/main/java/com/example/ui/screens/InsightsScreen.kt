@@ -1362,6 +1362,16 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                 .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(14.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
+            // Colors are read here (composition): inside the Canvas onDraw
+            // lambda a CompositionLocal read would return the light default.
+            val gridColor = ForensicsPalette.BorderStrong
+            val anomalyTopColor = ForensicsPalette.AmberPill
+            val anomalyBottomColor = ForensicsPalette.AmberSoftTile
+            val anomalyBorderColor = ForensicsPalette.AmberBorder
+            val areaTopColor = ForensicsPalette.BlueContainer
+            val areaBottomColor = ForensicsPalette.BlueSoftTile
+            val lineColor = ForensicsPalette.BlueChartLine
+            val anomalyDotColor = ForensicsPalette.TemperatureOrange
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val maxVal = (points.maxOfOrNull { it.drainPercent } ?: 50).coerceAtLeast(50).toFloat()
                 val minVal = 0f
@@ -1372,7 +1382,7 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                 listOf(0.10f, 0.52f, 0.94f).forEach { frac ->
                     val gy = chartHeight * frac
                     drawLine(
-                        color = ForensicsPalette.BorderStrong,
+                        color = gridColor,
                         start = Offset(0f, gy),
                         end = Offset(size.width, gy),
                         strokeWidth = 1.dp.toPx(),
@@ -1394,8 +1404,8 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                         drawRoundRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    ForensicsPalette.AmberPill.copy(alpha = 0.95f),
-                                    ForensicsPalette.AmberSoftTile.copy(alpha = 0.55f)
+                                    anomalyTopColor.copy(alpha = 0.95f),
+                                    anomalyBottomColor.copy(alpha = 0.55f)
                                 ),
                                 startY = center.y,
                                 endY = chartHeight
@@ -1405,7 +1415,7 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                             cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
                         )
                         drawRoundRect(
-                            color = ForensicsPalette.AmberBorder,
+                            color = anomalyBorderColor,
                             topLeft = Offset(center.x - barW / 2f, center.y),
                             size = Size(barW, chartHeight - center.y),
                             cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx()),
@@ -1424,8 +1434,8 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                     path = areaPath,
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            ForensicsPalette.BlueContainer.copy(alpha = 0.75f),
-                            ForensicsPalette.BlueSoftTile.copy(alpha = 0.15f)
+                            areaTopColor.copy(alpha = 0.75f),
+                            areaBottomColor.copy(alpha = 0.15f)
                         )
                     )
                 )
@@ -1437,7 +1447,7 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                 }
                 drawPath(
                     path = linePath,
-                    color = ForensicsPalette.BlueChartLine,
+                    color = lineColor,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
@@ -1450,7 +1460,7 @@ private fun DrainTrendLineChart(points: List<DayDrainPoint>) {
                         center = center
                     )
                     drawCircle(
-                        color = if (isAnom) ForensicsPalette.TemperatureOrange else ForensicsPalette.BlueChartLine,
+                        color = if (isAnom) anomalyDotColor else lineColor,
                         radius = radius,
                         center = center
                     )
