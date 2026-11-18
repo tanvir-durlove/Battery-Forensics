@@ -195,6 +195,9 @@ fun MiniBatteryIndicator(
     percent: Int,
     modifier: Modifier = Modifier
 ) {
+    // Read the color here (composition): inside the Canvas onDraw lambda a
+    // CompositionLocal read would return the light default in dark mode.
+    val indicatorColor = ForensicsPalette.GreenPrimary
     Canvas(modifier = modifier.size(width = 25.dp, height = 13.dp)) {
         val bodyWidth = size.width - 3.dp.toPx()
         val bodyHeight = size.height
@@ -202,7 +205,7 @@ fun MiniBatteryIndicator(
 
         // Outer battery outline
         drawRoundRect(
-            color = ForensicsPalette.GreenPrimary,
+            color = indicatorColor,
             topLeft = Offset.Zero,
             size = Size(bodyWidth, bodyHeight),
             cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
@@ -212,7 +215,7 @@ fun MiniBatteryIndicator(
         // Positive terminal nub
         val nubHeight = bodyHeight * 0.46f
         drawRoundRect(
-            color = ForensicsPalette.GreenPrimary,
+            color = indicatorColor,
             topLeft = Offset(bodyWidth + 1.dp.toPx(), (bodyHeight - nubHeight) / 2f),
             size = Size(2.2.dp.toPx(), nubHeight),
             cornerRadius = CornerRadius(1.dp.toPx(), 1.dp.toPx())
@@ -223,7 +226,7 @@ fun MiniBatteryIndicator(
         val maxFillW = (bodyWidth - pad * 2).coerceAtLeast(0f)
         val fillW = maxFillW * (percent.coerceIn(0, 100) / 100f)
         drawRoundRect(
-            color = ForensicsPalette.GreenPrimary,
+            color = indicatorColor,
             topLeft = Offset(pad, pad),
             size = Size(fillW, (bodyHeight - pad * 2).coerceAtLeast(0f)),
             cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
