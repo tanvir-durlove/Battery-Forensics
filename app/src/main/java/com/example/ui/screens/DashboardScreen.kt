@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.ActivityEstimateItem
 import com.example.data.CapabilityItem
 import com.example.data.LiveTelemetrySnapshot
