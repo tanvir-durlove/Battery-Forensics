@@ -763,6 +763,12 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
                 .border(1.dp, ForensicsPalette.BorderSubtle, RoundedCornerShape(14.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
+            // Colors are read here (composition): inside the Canvas onDraw
+            // lambda a CompositionLocal read would return the light default.
+            val gridColor = ForensicsPalette.BorderStrong
+            val areaTopColor = ForensicsPalette.GreenGauge
+            val areaBottomColor = ForensicsPalette.GreenSoftTile
+            val taperColor = ForensicsPalette.AmberPrimary
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height - 6.dp.toPx()
@@ -771,7 +777,7 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
                 // Horizontal grid lines for 100%, 50%, 0%
                 listOf(0.06f, 0.50f, 0.94f).forEach { frac ->
                     drawLine(
-                        color = ForensicsPalette.BorderStrong,
+                        color = gridColor,
                         start = Offset(0f, h * frac),
                         end = Offset(w, h * frac),
                         strokeWidth = 1.dp.toPx(),
@@ -800,8 +806,8 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
                     path = area,
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            ForensicsPalette.GreenGauge.copy(alpha = 0.35f),
-                            ForensicsPalette.GreenSoftTile.copy(alpha = 0.08f)
+                            areaTopColor.copy(alpha = 0.35f),
+                            areaBottomColor.copy(alpha = 0.08f)
                         )
                     )
                 )
@@ -813,14 +819,14 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
                 }
                 drawPath(
                     path = curve,
-                    color = ForensicsPalette.GreenGauge,
+                    color = areaTopColor,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
                 if (taperFractionX != null) {
                     val taperX = w * taperFractionX
                     drawLine(
-                        color = ForensicsPalette.AmberPrimary,
+                        color = taperColor,
                         start = Offset(taperX, pctToY(80f)),
                         end = Offset(taperX, h),
                         strokeWidth = 1.8.dp.toPx(),
@@ -832,7 +838,7 @@ private fun ChargingCurveChart(session: ChargingSessionEntity) {
                     val r = 3.8.dp.toPx()
                     drawCircle(color = Color.White, radius = r + 2.dp.toPx(), center = pt)
                     drawCircle(
-                        color = ForensicsPalette.GreenGauge,
+                        color = areaTopColor,
                         radius = r,
                         center = pt
                     )
