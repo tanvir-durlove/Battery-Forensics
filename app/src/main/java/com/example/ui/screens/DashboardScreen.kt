@@ -1195,6 +1195,12 @@ private fun BatteryCircularGauge(
         modifier = Modifier.size(204.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Colors are read here (composition): inside the Canvas onDraw
+        // lambda a CompositionLocal read would return the light default.
+        val dialFaceColor = ForensicsPalette.GreenSoftTile
+        val tickColor = ForensicsPalette.BorderStrong
+        val trackColor = ForensicsPalette.GreenTrack
+        val progressColor = ForensicsPalette.GreenGauge
         Canvas(modifier = Modifier.size(192.dp)) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val strokeWidth = 15.dp.toPx()
@@ -1204,7 +1210,7 @@ private fun BatteryCircularGauge(
 
             // Subtle inner dial face so the gauge center pops
             drawCircle(
-                color = ForensicsPalette.GreenSoftTile.copy(alpha = 0.35f),
+                color = dialFaceColor.copy(alpha = 0.35f),
                 radius = (arcSize.width / 2f) - strokeWidth * 0.7f,
                 center = center
             )
@@ -1223,7 +1229,7 @@ private fun BatteryCircularGauge(
                     center.y + (outerTickR * sin(angleRad)).toFloat()
                 )
                 drawLine(
-                    color = ForensicsPalette.BorderStrong,
+                    color = tickColor,
                     start = start,
                     end = end,
                     strokeWidth = if (i % 6 == 0) 2.dp.toPx() else 1.2.dp.toPx(),
@@ -1233,7 +1239,7 @@ private fun BatteryCircularGauge(
 
             // Background full ring
             drawArc(
-                color = ForensicsPalette.GreenTrack,
+                color = trackColor,
                 startAngle = 0f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -1245,7 +1251,7 @@ private fun BatteryCircularGauge(
             // Foreground progress arc starting from top (-90 degrees)
             val sweep = (percent.coerceIn(0, 100) / 100f) * 360f
             drawArc(
-                color = ForensicsPalette.GreenGauge,
+                color = progressColor,
                 startAngle = -90f,
                 sweepAngle = sweep,
                 useCenter = false,
